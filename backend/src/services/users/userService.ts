@@ -1,18 +1,24 @@
 import bcrypt from "bcrypt";
 import { userRepository, type UserRepository } from "./userRepository";
-import { InvariantError } from "../../exceptions/clientError";
-import type { CreateUserPayload } from "./validator/schema";
+import { AuthenticationError, InvariantError } from "../../exceptions/clientError";
+import type { CreateUserPayload, LoginPayload } from "./validator/schema";
 
 export class UserService {
   constructor(private repo: UserRepository = userRepository) {}
 
   async createUser(payload: CreateUserPayload) {
     const email = payload.email.trim().toLowerCase();
+    const nip = payload.nip.trim();
 
     // 1. Cek duplikasi email
     const existingUser = await this.repo.findByEmail(email);
     if (existingUser) {
       throw new InvariantError("email already exists", 400);
+    }
+
+    const existingNip = await this.repo.findByNip(nip, true);
+    if (existingNip) {
+      throw new InvariantError("nip already exists", 400);
     }
 
     // 2. Validate role
@@ -46,7 +52,7 @@ export class UserService {
       passwordHash,
       roleId,
       departmentId: payload.departmentId,
-      nip: payload.nip,
+      nip,
       jabatan: payload.jabatan,
     });
 
@@ -55,6 +61,19 @@ export class UserService {
       email: newUser.email,
       created_at: newUser.createdAt,
       updated_at: newUser.updatedAt,
+    };
+  }
+
+  async loginUser(payload: LoginPayload) {
+    const user = await this.repo.findByNip(payload.nip.trim());
+    if (!user || !(await bcrypt.compare(payload.password, user.passwordHash))) {
+      throw new AuthenticationError("nip atau password salah");
+    }
+
+    return {
+      nip: user.nip,
+      name: user.name,
+      email: user.email,
     };
   }
 }

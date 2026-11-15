@@ -5,6 +5,7 @@ import { UserService } from "../src/services/users/userService";
 describe("UserService Integration Logic Tests", () => {
   it("should throw error if email already exists", async () => {
     const mockRepo = {
+      findByNip: async () => null,
       findByEmail: async () => ({
         id: 1,
         email: "admin@gmail.com",
@@ -25,7 +26,7 @@ describe("UserService Integration Logic Tests", () => {
 
     const service = new UserService(mockRepo as any);
     await assert.rejects(
-      service.createUser({ email: "admin@gmail.com", password: "password123" }),
+      service.createUser({ email: "admin@gmail.com", password: "password123", nip: "198501012010011001" }),
       /email already exists/
     );
   });
@@ -33,6 +34,7 @@ describe("UserService Integration Logic Tests", () => {
   it("should successfully hash password and return created user contract", async () => {
     let insertedData: any = null;
     const mockRepo = {
+      findByNip: async () => null,
       findByEmail: async () => null,
       findRoleById: async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() }),
       findRoleByName: async () => null,
@@ -60,6 +62,7 @@ describe("UserService Integration Logic Tests", () => {
       email: "budi@sekolah.sch.id",
       password: "Password123!",
       roleId: 2,
+      nip: "198501012010011002",
     });
 
     assert.equal(result.id, 2);
@@ -68,5 +71,79 @@ describe("UserService Integration Logic Tests", () => {
     assert.ok(result.updated_at);
     assert.notEqual(insertedData.passwordHash, "Password123!");
     assert.match(insertedData.passwordHash, /^\$2[ab]\$/);
+  });
+
+  it("should reject a NIP that is already registered", async () => {
+    const mockRepo = {
+      findByEmail: async () => null,
+      findByNip: async () => ({ id: 1 }),
+    };
+
+    await assert.rejects(
+      new UserService(mockRepo as any).createUser({
+        email: "new-user@school.test",
+        password: "Password123",
+        nip: "198501012010011001",
+      }),
+      /nip already exists/
+    );
+  });
+
+  it("should login and return only the public user profile", async () => {
+    const bcrypt = await import("bcrypt");
+    const passwordHash = await bcrypt.default.hash("Password123!", 4);
+    const mockRepo = {
+      findByNip: async () => ({
+        id: 1,
+        nip: "198501012010011001",
+        email: "admin@gmail.com",
+        name: "admin",
+        passwordHash,
+        roleId: 1,
+        departmentId: null,
+        jabatan: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }),
+    };
+
+    const result = await new UserService(mockRepo as any).loginUser({
+      nip: "198501012010011001",
+      password: "Password123!",
+    });
+
+    assert.deepEqual(result, { nip: "198501012010011001", name: "admin", email: "admin@gmail.com" });
+    assert.equal("passwordHash" in result, false);
+  });
+
+  it("should return the same authentication error for unknown NIP and wrong password", async () => {
+    const bcrypt = await import("bcrypt");
+    const passwordHash = await bcrypt.default.hash("Password123!", 4);
+    const unknownNipService = new UserService({ findByNip: async () => null } as any);
+    const wrongPasswordService = new UserService({
+      findByNip: async () => ({
+        id: 1,
+        nip: "198501012010011001",
+        email: "admin@gmail.com",
+        name: "admin",
+        passwordHash,
+        roleId: 1,
+        departmentId: null,
+        jabatan: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }),
+    } as any);
+
+    await assert.rejects(
+      unknownNipService.loginUser({ nip: "198501012010011002", password: "Password123!" }),
+      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+    );
+    await assert.rejects(
+      wrongPasswordService.loginUser({ nip: "198501012010011001", password: "WrongPass123" }),
+      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+    );
   });
 });

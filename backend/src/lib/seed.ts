@@ -57,13 +57,21 @@ export async function seedDatabase() {
         await db.insert(users).values({
           name: "admin",
           email: "admin@gmail.com",
+          nip: "198501012010011001",
           passwordHash,
           roleId: adminRole.id,
           departmentId: tuDept ? tuDept.id : null,
           jabatan: "Administrator",
         });
-        console.log("✓ Seeded default admin user (email: admin@gmail.com, pass: admin123)");
+        console.log("✓ Seeded default admin user (NIP: 198501012010011001, email: admin@gmail.com, pass: admin123)");
       } else {
+        if (!existingAdmin[0]?.nip) {
+          await db
+            .update(users)
+            .set({ nip: "198501012010011001" })
+            .where(eq(users.id, existingAdmin[0]!.id));
+          console.log("✓ Added default NIP to existing admin user.");
+        }
         console.log("ℹ Default admin already exists.");
       }
     }

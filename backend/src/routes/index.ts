@@ -28,7 +28,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 });
 
 // Domain Routes
-router.use("/api/users", userRouter);
+router.use("/api/v1/auth", userRouter);
 
 export default router;
 

@@ -1,9 +1,9 @@
-import { mysqlTable, serial, varchar, text, timestamp, int } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, timestamp, int } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
 // 1. Roles Table
 export const roles = mysqlTable("roles", {
-  id: serial("id").primaryKey(),
+  id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 50 }).notNull().unique(),
   description: varchar("description", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -11,14 +11,14 @@ export const roles = mysqlTable("roles", {
 
 // 2. Departments Table
 export const departments = mysqlTable("departments", {
-  id: serial("id").primaryKey(),
+  id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // 3. Users Table
 export const users = mysqlTable("users", {
-  id: serial("id").primaryKey(),
+  id: int("id").autoincrement().primaryKey(),
   nip: varchar("nip", { length: 30 }).unique(),
   name: varchar("150", { length: 150 }).notNull(),
   email: varchar("email", { length: 150 }).notNull().unique(),

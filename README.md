@@ -27,7 +27,7 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 │   │   ├── services/
 │   │   │   └── users/             # Domain Fitur Users
 │   │   │       ├── controller/    # userController.ts
-│   │   │       ├── routes/        # index.ts (POST /api/users)
+│   │   │       ├── routes/        # register-user & login-user
 │   │   │       ├── validator/     # schema.ts (validasi body, email, password, role)
 │   │   │       ├── userService.ts # Logic duplikasi & hashing bcrypt
 │   │   │       └── userRepository.ts # Query Drizzle ORM
@@ -83,7 +83,7 @@ DB_NAME=belajar_vibecoding
   ```bash
   npm run db:seed
   ```
-  *(Akun default: email `admin@gmail.com`, password `admin123`)*
+  *(Akun default: NIP `198501012010011001`, password `admin123`)*
 
 ### 4. Menjalankan Server & Testing
 - **Menjalankan Server (Dev Mode / Hot Reload):**
@@ -118,7 +118,7 @@ DB_NAME=belajar_vibecoding
 ```
 
 ### Registrasi User Baru
-`POST /api/users`
+`POST /api/v1/auth/register-user`
 
 **Request Body:**
 ```json
@@ -153,3 +153,28 @@ DB_NAME=belajar_vibecoding
   "data": null
 }
 ```
+
+### Login User
+`POST /api/v1/auth/login-user`
+
+**Request Body:**
+```json
+{
+  "nip": "198501012010011001",
+  "password": "admin123"
+}
+```
+
+**Response Sukses (`200 OK`):**
+```json
+{
+  "message": "success Login account",
+  "data": {
+    "nip": "198501012010011001",
+    "name": "admin",
+    "email": "admin@gmail.com"
+  }
+}
+```
+
+Jika NIP tidak ditemukan atau password salah, endpoint mengembalikan `401` dengan pesan `nip atau password salah`.
