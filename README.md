@@ -1,14 +1,14 @@
-# Belajar Vibecoding - Express + Drizzle + MySQL (Bun Runtime)
+# Belajar Vibecoding - Express + Drizzle + MariaDB (Node.js)
 
-Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/keluar, disposisi berjenjang, dan audit trail log) berbasis **Bun**, **Express.js**, **Drizzle ORM**, dan **MySQL**.
+Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/keluar, disposisi berjenjang, dan audit trail log) berbasis **Node.js**, **Express.js**, **Drizzle ORM**, dan **MariaDB**.
 
 ---
 
 ## 🚀 Tech Stack
-- **Runtime**: [Bun](https://bun.sh/)
+- **Runtime**: [Node.js](https://nodejs.org/)
 - **Framework**: Express.js
 - **ORM & Migrations**: Drizzle ORM (`drizzle-kit`)
-- **Database**: MySQL (`mysql2` connection pool)
+- **Database**: MariaDB (`mysql2` connection pool)
 - **Language**: TypeScript
 
 ---
@@ -27,7 +27,7 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 │   │   ├── services/
 │   │   │   └── users/             # Domain Fitur Users
 │   │   │       ├── controller/    # userController.ts
-│   │   │       ├── routes/        # index.ts (POST /api/users)
+│   │   │       ├── routes/        # register-user & login-user
 │   │   │       ├── validator/     # schema.ts (validasi body, email, password, role)
 │   │   │       ├── userService.ts # Logic duplikasi & hashing bcrypt
 │   │   │       └── userRepository.ts # Query Drizzle ORM
@@ -45,15 +45,15 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 ## 🛠️ Panduan Menjalankan Project
 
 ### 1. Prasyarat
-- [Bun](https://bun.sh/) (v1.0+)
-- Server MySQL aktif
+- Node.js 26 LTS
+- Server MariaDB aktif
 
 ### 2. Konfigurasi Environment
 Salin template konfigurasi:
 ```bash
 cp .env.example .env
 ```
-Sesuaikan kredensial MySQL pada `.env`:
+Sesuaikan kredensial MariaDB pada `.env`:
 ```env
 PORT=3000
 NODE_ENV=development
@@ -61,37 +61,42 @@ NODE_ENV=development
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=password_mysql_anda
+DB_PASSWORD=password_mariadb_anda
 DB_NAME=belajar_vibecoding
 ```
 
 ### 3. Migrasi & Seed Database
+- **Instal dependensi Node.js:**
+  ```bash
+  npm install
+  ```
+
 - **Generate SQL Migration:**
   ```bash
-  bun run db:generate
+  npm run db:generate
   ```
-- **Push Schema ke Database MySQL:**
+- **Push Schema ke Database MariaDB:**
   ```bash
-  bun run db:push
+  npm run db:push
   ```
 - **Jalankan Seeder (Roles, Departments, Akun Admin Default):**
   ```bash
-  bun run db:seed
+  npm run db:seed
   ```
-  *(Akun default: email `admin@gmail.com`, password `admin123`)*
+  *(Akun default: NIP `198501012010011001`, password `admin123`)*
 
 ### 4. Menjalankan Server & Testing
 - **Menjalankan Server (Dev Mode / Hot Reload):**
   ```bash
-  bun run dev
+  npm run dev
   ```
 - **Type Checking:**
   ```bash
-  bun run typecheck
+  npm run typecheck
   ```
 - **Menjalankan Unit Test:**
   ```bash
-  bun test
+  npm test
   ```
 
 ---
@@ -103,7 +108,7 @@ DB_NAME=belajar_vibecoding
 ```json
 {
   "status": "ok",
-  "runtime": "bun",
+  "runtime": "nodejs",
   "timestamp": "2026-11-08T16:30:00.000Z",
   "services": {
     "server": "healthy",
@@ -113,7 +118,7 @@ DB_NAME=belajar_vibecoding
 ```
 
 ### Registrasi User Baru
-`POST /api/users`
+`POST /api/v1/auth/register-user`
 
 **Request Body:**
 ```json
@@ -148,3 +153,28 @@ DB_NAME=belajar_vibecoding
   "data": null
 }
 ```
+
+### Login User
+`POST /api/v1/auth/login-user`
+
+**Request Body:**
+```json
+{
+  "nip": "198501012010011001",
+  "password": "admin123"
+}
+```
+
+**Response Sukses (`200 OK`):**
+```json
+{
+  "message": "success Login account",
+  "data": {
+    "nip": "198501012010011001",
+    "name": "admin",
+    "email": "admin@gmail.com"
+  }
+}
+```
+
+Jika NIP tidak ditemukan atau password salah, endpoint mengembalikan `401` dengan pesan `nip atau password salah`.

@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import { db, poolConnection } from "./db";
 import { roles, departments, users } from "./schema";
 import { eq } from "drizzle-orm";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 export async function seedDatabase() {
   console.log("🌱 Starting database seeding...");
@@ -55,13 +57,21 @@ export async function seedDatabase() {
         await db.insert(users).values({
           name: "admin",
           email: "admin@gmail.com",
+          nip: "198501012010011001",
           passwordHash,
           roleId: adminRole.id,
           departmentId: tuDept ? tuDept.id : null,
           jabatan: "Administrator",
         });
-        console.log("✓ Seeded default admin user (email: admin@gmail.com, pass: admin123)");
+        console.log("✓ Seeded default admin user (NIP: 198501012010011001, email: admin@gmail.com, pass: admin123)");
       } else {
+        if (!existingAdmin[0]?.nip) {
+          await db
+            .update(users)
+            .set({ nip: "198501012010011001" })
+            .where(eq(users.id, existingAdmin[0]!.id));
+          console.log("✓ Added default NIP to existing admin user.");
+        }
         console.log("ℹ Default admin already exists.");
       }
     }
@@ -76,7 +86,7 @@ export async function seedDatabase() {
 }
 
 // Run direct if invoked from CLI
-if (import.meta.main) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   seedDatabase()
     .then(() => process.exit(0))
     .catch(() => process.exit(1));

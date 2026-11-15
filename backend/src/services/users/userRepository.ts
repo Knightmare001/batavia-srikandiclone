@@ -3,6 +3,19 @@ import { db } from "../../lib/db";
 import { users, roles, type User, type Role } from "../../lib/schema";
 
 export class UserRepository {
+  async findByNip(nip: string, includeDeleted = false): Promise<User | null> {
+    const conditions = [eq(users.nip, nip)];
+    if (!includeDeleted) {
+      conditions.push(isNull(users.deletedAt));
+    }
+
+    const [result] = await db
+      .select()
+      .from(users)
+      .where(and(...conditions));
+    return result || null;
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const [result] = await db
       .select()

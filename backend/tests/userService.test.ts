@@ -1,11 +1,12 @@
-import { describe, it, expect, mock } from "bun:test";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { UserService } from "../src/services/users/userService";
-import { InvariantError } from "../src/exceptions/clientError";
 
 describe("UserService Integration Logic Tests", () => {
   it("should throw error if email already exists", async () => {
-    const mockRepo: any = {
-      findByEmail: mock(async (email: string) => ({
+    const mockRepo = {
+      findByNip: async () => null,
+      findByEmail: async () => ({
         id: 1,
         email: "admin@gmail.com",
         name: "Admin",
@@ -17,28 +18,27 @@ describe("UserService Integration Logic Tests", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         deletedAt: null,
-      })),
-      findRoleById: mock(async () => null),
-      insertUser: mock(async () => null),
+      }),
+      findRoleById: async () => null,
+      findRoleByName: async () => null,
+      insertUser: async () => null,
     };
 
-    const service = new UserService(mockRepo);
-
-    expect(
-      service.createUser({
-        email: "admin@gmail.com",
-        password: "password123",
-      })
-    ).rejects.toThrow("email already exists");
+    const service = new UserService(mockRepo as any);
+    await assert.rejects(
+      service.createUser({ email: "admin@gmail.com", password: "password123", nip: "198501012010011001" }),
+      /email already exists/
+    );
   });
 
   it("should successfully hash password and return created user contract", async () => {
     let insertedData: any = null;
-
-    const mockRepo: any = {
-      findByEmail: mock(async () => null),
-      findRoleById: mock(async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() })),
-      insertUser: mock(async (data: any) => {
+    const mockRepo = {
+      findByNip: async () => null,
+      findByEmail: async () => null,
+      findRoleById: async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() }),
+      findRoleByName: async () => null,
+      insertUser: async (data: any) => {
         insertedData = data;
         return {
           id: 2,
@@ -53,27 +53,97 @@ describe("UserService Integration Logic Tests", () => {
           updatedAt: new Date("2026-11-08T10:00:00Z"),
           deletedAt: null,
         };
-      }),
+      },
     };
 
     const service = new UserService(mockRepo);
-
     const result = await service.createUser({
       name: "Budi Santoso",
       email: "budi@sekolah.sch.id",
       password: "Password123!",
       roleId: 2,
+      nip: "198501012010011002",
     });
 
-    // Check response structure
-    expect(result.id).toBe(2);
-    expect(result.email).toBe("budi@sekolah.sch.id");
-    expect(result.created_at).toBeDefined();
-    expect(result.updated_at).toBeDefined();
+    assert.equal(result.id, 2);
+    assert.equal(result.email, "budi@sekolah.sch.id");
+    assert.ok(result.created_at);
+    assert.ok(result.updated_at);
+    assert.notEqual(insertedData.passwordHash, "Password123!");
+    assert.match(insertedData.passwordHash, /^\$2[ab]\$/);
+  });
 
-    // Verify password was hashed (not plain text)
-    expect(insertedData.passwordHash).not.toBe("Password123!");
-    expect(insertedData.passwordHash.startsWith("$2b$") || insertedData.passwordHash.startsWith("$2a$")).toBe(true);
+  it("should reject a NIP that is already registered", async () => {
+    const mockRepo = {
+      findByEmail: async () => null,
+      findByNip: async () => ({ id: 1 }),
+    };
+
+    await assert.rejects(
+      new UserService(mockRepo as any).createUser({
+        email: "new-user@school.test",
+        password: "Password123",
+        nip: "198501012010011001",
+      }),
+      /nip already exists/
+    );
+  });
+
+  it("should login and return only the public user profile", async () => {
+    const bcrypt = await import("bcrypt");
+    const passwordHash = await bcrypt.default.hash("Password123!", 4);
+    const mockRepo = {
+      findByNip: async () => ({
+        id: 1,
+        nip: "198501012010011001",
+        email: "admin@gmail.com",
+        name: "admin",
+        passwordHash,
+        roleId: 1,
+        departmentId: null,
+        jabatan: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }),
+    };
+
+    const result = await new UserService(mockRepo as any).loginUser({
+      nip: "198501012010011001",
+      password: "Password123!",
+    });
+
+    assert.deepEqual(result, { nip: "198501012010011001", name: "admin", email: "admin@gmail.com" });
+    assert.equal("passwordHash" in result, false);
+  });
+
+  it("should return the same authentication error for unknown NIP and wrong password", async () => {
+    const bcrypt = await import("bcrypt");
+    const passwordHash = await bcrypt.default.hash("Password123!", 4);
+    const unknownNipService = new UserService({ findByNip: async () => null } as any);
+    const wrongPasswordService = new UserService({
+      findByNip: async () => ({
+        id: 1,
+        nip: "198501012010011001",
+        email: "admin@gmail.com",
+        name: "admin",
+        passwordHash,
+        roleId: 1,
+        departmentId: null,
+        jabatan: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }),
+    } as any);
+
+    await assert.rejects(
+      unknownNipService.loginUser({ nip: "198501012010011002", password: "Password123!" }),
+      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+    );
+    await assert.rejects(
+      wrongPasswordService.loginUser({ nip: "198501012010011001", password: "WrongPass123" }),
+      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+    );
   });
 });
-

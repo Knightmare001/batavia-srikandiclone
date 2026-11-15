@@ -18,7 +18,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 
   res.json({
     status: "ok",
-    runtime: "bun",
+    runtime: "nodejs",
     timestamp: new Date().toISOString(),
     services: {
       server: "healthy",
@@ -28,7 +28,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 });
 
 // Domain Routes
-router.use("/api/users", userRouter);
+router.use("/api/v1/auth", userRouter);
 
 export default router;
 
