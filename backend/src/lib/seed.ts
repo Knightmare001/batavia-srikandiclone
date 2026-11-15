@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import { db, poolConnection } from "./db";
 import { roles, departments, users } from "./schema";
 import { eq } from "drizzle-orm";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 export async function seedDatabase() {
   console.log("🌱 Starting database seeding...");
@@ -76,7 +78,7 @@ export async function seedDatabase() {
 }
 
 // Run direct if invoked from CLI
-if (import.meta.main) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   seedDatabase()
     .then(() => process.exit(0))
     .catch(() => process.exit(1));

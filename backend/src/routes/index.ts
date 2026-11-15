@@ -18,7 +18,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 
   res.json({
     status: "ok",
-    runtime: "bun",
+    runtime: "nodejs",
     timestamp: new Date().toISOString(),
     services: {
       server: "healthy",

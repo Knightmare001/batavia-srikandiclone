@@ -20,7 +20,7 @@ app.use(errorMiddleware);
 // Start Server
 if (process.env.NODE_ENV !== "test") {
   app.listen(port, () => {
-    console.log(`🚀 Server running on Bun at http://localhost:${port}`);
+    console.log(`🚀 Server running on Node.js at http://localhost:${port}`);
     console.log(`📋 Health check: http://localhost:${port}/health`);
   });
 }

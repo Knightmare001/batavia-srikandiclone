@@ -1,11 +1,11 @@
-import { describe, it, expect, mock } from "bun:test";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { UserService } from "../src/services/users/userService";
-import { InvariantError } from "../src/exceptions/clientError";
 
 describe("UserService Integration Logic Tests", () => {
   it("should throw error if email already exists", async () => {
-    const mockRepo: any = {
-      findByEmail: mock(async (email: string) => ({
+    const mockRepo = {
+      findByEmail: async () => ({
         id: 1,
         email: "admin@gmail.com",
         name: "Admin",
@@ -17,28 +17,26 @@ describe("UserService Integration Logic Tests", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         deletedAt: null,
-      })),
-      findRoleById: mock(async () => null),
-      insertUser: mock(async () => null),
+      }),
+      findRoleById: async () => null,
+      findRoleByName: async () => null,
+      insertUser: async () => null,
     };
 
-    const service = new UserService(mockRepo);
-
-    expect(
-      service.createUser({
-        email: "admin@gmail.com",
-        password: "password123",
-      })
-    ).rejects.toThrow("email already exists");
+    const service = new UserService(mockRepo as any);
+    await assert.rejects(
+      service.createUser({ email: "admin@gmail.com", password: "password123" }),
+      /email already exists/
+    );
   });
 
   it("should successfully hash password and return created user contract", async () => {
     let insertedData: any = null;
-
-    const mockRepo: any = {
-      findByEmail: mock(async () => null),
-      findRoleById: mock(async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() })),
-      insertUser: mock(async (data: any) => {
+    const mockRepo = {
+      findByEmail: async () => null,
+      findRoleById: async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() }),
+      findRoleByName: async () => null,
+      insertUser: async (data: any) => {
         insertedData = data;
         return {
           id: 2,
@@ -53,11 +51,10 @@ describe("UserService Integration Logic Tests", () => {
           updatedAt: new Date("2026-11-08T10:00:00Z"),
           deletedAt: null,
         };
-      }),
+      },
     };
 
     const service = new UserService(mockRepo);
-
     const result = await service.createUser({
       name: "Budi Santoso",
       email: "budi@sekolah.sch.id",
@@ -65,15 +62,11 @@ describe("UserService Integration Logic Tests", () => {
       roleId: 2,
     });
 
-    // Check response structure
-    expect(result.id).toBe(2);
-    expect(result.email).toBe("budi@sekolah.sch.id");
-    expect(result.created_at).toBeDefined();
-    expect(result.updated_at).toBeDefined();
-
-    // Verify password was hashed (not plain text)
-    expect(insertedData.passwordHash).not.toBe("Password123!");
-    expect(insertedData.passwordHash.startsWith("$2b$") || insertedData.passwordHash.startsWith("$2a$")).toBe(true);
+    assert.equal(result.id, 2);
+    assert.equal(result.email, "budi@sekolah.sch.id");
+    assert.ok(result.created_at);
+    assert.ok(result.updated_at);
+    assert.notEqual(insertedData.passwordHash, "Password123!");
+    assert.match(insertedData.passwordHash, /^\$2[ab]\$/);
   });
 });
-
