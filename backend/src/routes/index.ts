@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { userRouter } from "../services/users/routes";
 import { incomingLetterRouter } from "../services/incomingLetters/routes";
 import { poolConnection } from "../lib/db";
+import { dispositionRouter } from "../services/dispositions/routes";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 // Domain Routes
 router.use("/api/v1/auth", userRouter);
 router.use("/api/v1/surat-masuk", incomingLetterRouter);
+router.use("/api/v1/disposisi", dispositionRouter);
 
 export default router;
 

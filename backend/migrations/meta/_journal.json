@@ -15,6 +15,13 @@
       "when": 1794747656539,
       "tag": "0001_shocking_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794992489170,
+      "tag": "0002_fuzzy_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }
