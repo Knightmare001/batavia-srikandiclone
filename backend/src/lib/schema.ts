@@ -99,6 +99,35 @@ export const dispositionHistories = mysqlTable("disposition_histories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const outgoingLetters = mysqlTable("outgoing_letters", {
+  id: int("id").autoincrement().primaryKey(),
+  nomorAgenda: varchar("nomor_agenda", { length: 50 }).notNull().unique(),
+  nomorSurat: varchar("nomor_surat", { length: 100 }).notNull(),
+  tanggalSurat: date("tanggal_surat", { mode: "string" }).notNull(),
+  tanggalDikirim: date("tanggal_dikirim", { mode: "string" }).notNull(),
+  pembuatSurat: varchar("pembuat_surat", { length: 150 }).notNull(),
+  tujuanSurat: varchar("tujuan_surat", { length: 255 }).notNull(),
+  perihal: varchar("perihal", { length: 255 }).notNull(),
+  jenisSurat: varchar("jenis_surat", { length: 100 }).notNull(),
+  filePath: varchar("file_path", { length: 255 }).notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  keterangan: text("keterangan"),
+  statusSurat: varchar("status_surat", { length: 50 }).default("Tercatat").notNull(),
+  createdBy: int("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const outgoingLetterHistories = mysqlTable("outgoing_letter_histories", {
+  id: int("id").autoincrement().primaryKey(),
+  letterId: int("letter_id").notNull().references(() => outgoingLetters.id, { onDelete: "cascade" }),
+  userId: int("user_id").notNull().references(() => users.id),
+  aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
+  keterangan: varchar("keterangan", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type NewRole = typeof roles.$inferInsert;

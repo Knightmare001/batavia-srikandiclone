@@ -1,142 +1,242 @@
-Alur fitur guru
-Contoh kasus: Kepala Sekolah menerima surat laporan kerusakan laboratorium komputer, kemudian mendisposisikannya kepada Wakasek Sarpras. Wakasek meneruskan tugas pemeriksaan kepada Guru Informatika.
-Wakasek Sarpras
+Sekarang kita masuk ke Modul Surat Keluar. Karena modul surat masuk dan disposisi sudah kamu buat, surat keluar bisa dibuat lebih sederhana. Fokusnya adalah pencatatan, upload dokumen, pengarsipan, pencarian, dan preview dokumen.
 
-Meneruskan tugas pemeriksaan kepada guru
+Dalam sistem sekolahmu, TU menjadi pihak yang bertanggung jawab mencatat dan mengunggah surat keluar, meskipun surat tersebut bisa dibuat oleh Kepala Sekolah, Wakasek, atau bagian lain.
+1. Alur proses surat keluar
+Contoh kasus: Wakasek Kurikulum membuat surat undangan rapat untuk seluruh guru.
+Pembuat Surat
 
-Guru Informatika
+Kepala Sekolah / Wakasek / TU
 
-Menerima tugas melalui menu Tugas Saya
+Membuat dokumen surat keluar
 
-Melihat detail surat
+Tata Usaha (TU)
 
-Membaca surat asli dan instruksi Wakasek
+Mencatat dan mengunggah surat
 
-Melaksanakan tugas
+Mengisi metadata dan upload PDF
 
-Memeriksa kondisi komputer
+Database Surat Keluar
 
-Mengirim laporan dan menandai selesai
+Menyimpan metadata dan dokumen
 
-Wakasek menerima hasil pekerjaan
+Status: Tercatat
 
+Arsip Surat Keluar
 
-2. Tampilan halaman guru
-Saya menyarankan guru memiliki dua menu utama:
-- Tugas Saya: daftar tugas yang diberikan oleh Wakasek.
-- Riwayat Tugas: tugas yang sudah diselesaikan.
-Contoh tampilan daftar tugas:
-Tugas Saya
-2 Belum selesai
-
-Pemeriksaan Laboratorium
-Diproses
-
-Dari: Wakasek Sarpras
-
-Periksa 3 komputer yang tidak dapat menyala di laboratorium.
-Batas waktu: 19 November 2026
-
-Tugas #25
-
-Lihat Detail
-Pemeriksaan Jaringan
-Selesai
-
-Dari: Wakasek Sarpras
-
-Pemeriksaan koneksi jaringan laboratorium.
-
-Selesai: 18 November 2026
+Dapat dicari, dilihat, dan diunduh oleh pengguna berwenang
 
 
-3. Fitur detail tugas dan surat
-Ketika guru membuka tugas, informasi yang ditampilkan sebaiknya meliputi:
-Informasi	Keterangan
-Nomor surat	Nomor surat asli
-Perihal	Judul atau isi pokok surat
-Tanggal surat	Tanggal penerbitan
-File surat	Dokumen asli yang bisa dibuka
-Pemberi tugas	Wakasek yang meneruskan tugas
-Instruksi	Arahan yang harus dilakukan
-Prioritas	Biasa, Penting, Segera
-Batas waktu	Tenggat pengerjaan
-Status	Belum Diproses, Diproses, Selesai
+Catatan: jika sekolah mengharuskan persetujuan atau tanda tangan Kepala Sekolah sebelum surat dikirim, proses tersebut bisa ditambahkan sebagai tahap tersendiri. Untuk rancangan awal, kita belum mengasumsikan proses persetujuan itu wajib.
+2. Data yang diperlukan
+Berikut atribut yang saya sarankan untuk tabel surat_keluar.
+Atribut	Keterangan
+id_surat_keluar	ID surat, otomatis
+nomor_agenda	Nomor agenda otomatis
+nomor_surat	Nomor resmi surat
+tanggal_surat	Tanggal pembuatan surat
+tanggal_dikirim	Tanggal surat dikirim
+pembuat_surat	Pihak yang membuat surat
+tujuan_surat	Instansi atau pihak penerima
+perihal	Pokok pembahasan surat
+jenis_surat	Jenis surat keluar
+file_surat	File dokumen surat
+keterangan	Informasi tambahan
+status_surat	Status pencatatan surat
+id_user	ID TU yang mengunggah
+created_at	Waktu pencatatan
 
-Guru harus bisa menekan tombol Lihat Dokumen untuk membaca surat asli dalam browser tanpa harus mengunduhnya.
-4. Form laporan hasil pekerjaan
-Setelah menyelesaikan pekerjaan, guru mengisi laporan.
+Contoh data:
+Atribut	Contoh
+Nomor agenda	SK-001/2026
+Nomor surat	050/SMK/XI/2026
+Tanggal surat	18-11-2026
+Tanggal dikirim	18-11-2026
+Pembuat surat	Wakasek Kurikulum
+Tujuan	Seluruh Guru
+Perihal	Undangan Rapat Evaluasi
+Jenis surat	Undangan
+Status	Tercatat
 
-Contoh:
-Laporan Tindak Lanjut
-Tugas
+3. Endpoint API surat keluar
+Mengikuti pola endpoint surat masuk yang sudah kamu implementasikan, berikut endpoint yang disarankan.
 
-Pemeriksaan Laboratorium Komputer
+Base URL: /api/v1/surat-keluar
+Method	Endpoint	Fungsi	Hak akses
+POST	/	Menambahkan surat keluar	TU
+GET	/	Menampilkan daftar surat keluar	Sesuai izin
+GET	/:id	Detail surat keluar	Sesuai izin
+PUT	/:id	Mengubah data surat	TU
+DELETE	/:id	Soft delete surat	TU
+GET	/:id/dokumen	Preview/download dokumen	Sesuai izin
+GET	/:id/riwayat	Riwayat surat keluar	Sesuai izin
 
-Instruksi
-
-Periksa 3 komputer yang tidak dapat menyala di laboratorium.
-
-
-Status pekerjaan
-Selesai
-Catatan hasil pekerjaan
-
-Contoh laporan yang diisi guru
-Ditemukan 3 komputer mengalami kerusakan pada bagian power supply. Hasil pemeriksaan sudah disampaikan kepada Wakasek Sarpras.
-Tanggal selesai: otomatis dicatat sistem
-Contoh tampilan laporanIni ilustrasi tampilan, bukan form yang terhubung ke backend.
-5. Endpoint API untuk guru
-Karena kamu sudah menggunakan struktur /api/v1, endpoint-nya bisa dibuat seperti berikut:
-Method	Endpoint	Fungsi
-GET	/api/v1/disposisi/inbox	Melihat tugas yang diterima
-GET	/api/v1/disposisi/:id	Melihat detail tugas
-GET	/api/v1/disposisi/:id/dokumen	Melihat dokumen surat asli
-PATCH	/api/v1/disposisi/:id/tindak-lanjut	Mengubah status dan mengisi laporan
-GET	/api/v1/disposisi/:id/riwayat	Melihat riwayat tugas
-
-Endpoint tersebut sebenarnya sudah sebagian besar ada dalam rancangan backend-mu. Jadi, tidak perlu membuat modul baru khusus guru.
-
-Contoh request ketika guru mulai mengerjakan:
-PATCH /api/v1/disposisi/25/tindak-lanjut
+Tambahkan fitur filter dan pagination:
+GET /api/v1/surat-keluar?search=undangan
+GET /api/v1/surat-keluar?tahun=2026
+GET /api/v1/surat-keluar?jenis=undangan
+GET /api/v1/surat-keluar?page=1&limit=10
 
 
+4. Contoh request dan response
+A. Menambahkan surat keluar
+POST /api/v1/surat-keluar
+Content-Type: multipart/form-data
+
+
+Data yang dikirim:
+Field	Contoh
+nomor_surat	050/SMK/XI/2026
+tanggal_surat	2026-11-18
+tanggal_dikirim	2026-11-18
+pembuat_surat	Wakasek Kurikulum
+tujuan_surat	Seluruh Guru
+perihal	Undangan Rapat Evaluasi
+jenis_surat	Undangan
+keterangan	Rapat evaluasi semester
+file_surat	undangan_rapat.pdf
+
+Nomor agenda dibuat otomatis oleh backend, begitu juga id_user berdasarkan akun TU yang login.
+
+Contoh response:
 {
-  "status": "Diproses",
-  "catatan": "Sedang melakukan pemeriksaan komputer."
+  "success": true,
+  "message": "Surat keluar berhasil dicatat",
+  "data": {
+    "id_surat_keluar": 1,
+    "nomor_agenda": "SK-001/2026",
+    "nomor_surat": "050/SMK/XI/2026",
+    "perihal": "Undangan Rapat Evaluasi",
+    "pembuat_surat": "Wakasek Kurikulum",
+    "tujuan_surat": "Seluruh Guru",
+    "status_surat": "Tercatat"
+  }
 }
 
 
-Contoh request ketika guru menyelesaikan tugas:
-{
-  "status": "Selesai",
-  "catatan": "Ditemukan 3 komputer mengalami kerusakan pada power supply."
-}
+B. Melihat daftar surat keluar
+GET /api/v1/surat-keluar
 
 
 Contoh response:
 {
   "success": true,
-  "message": "Tindak lanjut berhasil diselesaikan",
-  "data": {
-    "id_disposisi": 25,
-    "status": "Selesai",
-    "catatan": "Ditemukan 3 komputer mengalami kerusakan pada power supply.",
-    "tanggal_selesai": "2026-11-19 10:30:00"
+  "data": [
+    {
+      "id_surat_keluar": 1,
+      "nomor_agenda": "SK-001/2026",
+      "nomor_surat": "050/SMK/XI/2026",
+      "tanggal_surat": "2026-11-18",
+      "pembuat_surat": "Wakasek Kurikulum",
+      "tujuan_surat": "Seluruh Guru",
+      "perihal": "Undangan Rapat Evaluasi",
+      "status_surat": "Tercatat"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1
   }
 }
 
 
-6. Aturan akses yang perlu diterapkan
-Ini penting supaya guru tidak bisa memanipulasi tugas milik pengguna lain.
-- Guru hanya dapat melihat surat yang terkait dengan disposisi yang ditujukan kepadanya.
-- Guru hanya dapat memperbarui status tugas miliknya sendiri.
-- Guru tidak dapat membuat disposisi utama.
-- Guru tidak dapat meneruskan tugas kepada guru lain, kecuali memang diberikan kewenangan khusus.
-- Guru tidak dapat mengubah instruksi dari Wakasek.
-- Setelah status Selesai, guru tidak dapat mengubahnya kembali.
-Satu hal yang perlu dibedakan: ketika guru menekan Selesai, yang selesai adalah tugas guru tersebut, bukan otomatis seluruh disposisi Wakasek atau surat masuknya. Wakasek masih perlu memeriksa laporan guru dan menyampaikan hasil akhir kepada Kepala Sekolah.
+C. Melihat detail surat keluar
+GET /api/v1/surat-keluar/1
 
-Dengan begitu, alur tanggung jawabnya tetap jelas: Guru menyelesaikan tugas → Wakasek memverifikasi hasil → Kepala Sekolah memantau penyelesaian disposisi.
+
+Contoh response:
+{
+  "success": true,
+  "data": {
+    "id_surat_keluar": 1,
+    "nomor_agenda": "SK-001/2026",
+    "nomor_surat": "050/SMK/XI/2026",
+    "tanggal_surat": "2026-11-18",
+    "tanggal_dikirim": "2026-11-18",
+    "pembuat_surat": "Wakasek Kurikulum",
+    "tujuan_surat": "Seluruh Guru",
+    "perihal": "Undangan Rapat Evaluasi",
+    "jenis_surat": "Undangan",
+    "file_surat": "/uploads/surat-keluar/undangan_rapat.pdf",
+    "status_surat": "Tercatat"
+  }
+}
+
+
+D. Preview dokumen
+GET /api/v1/surat-keluar/1/dokumen
+
+
+Backend mengirim file dengan header yang sesuai, misalnya:
+Content-Type: application/pdf
+Content-Disposition: inline; filename="undangan_rapat.pdf"
+
+
+Dengan inline, dokumen PDF dapat dibuka langsung di browser.
+E. Mengubah data surat
+PUT /api/v1/surat-keluar/1
+
+
+Bisa digunakan ketika TU salah memasukkan perihal, tujuan, tanggal, atau perlu mengganti file surat.
+F. Menghapus surat
+DELETE /api/v1/surat-keluar/1
+
+
+Gunakan soft delete seperti surat masuk. Dokumen tidak langsung dihapus permanen dari penyimpanan.
+5. Hak akses setiap role
+Role	Hak akses surat keluar
+Admin	Melihat dan mengelola sesuai kewenangan
+TU	Tambah, lihat, edit, hapus, dan upload
+Kepala Sekolah	Melihat arsip surat keluar
+Wakasek	Melihat arsip surat keluar
+Guru/Staf	Melihat arsip yang diizinkan
+
+Untuk tahap awal, kamu bisa memberikan akses melihat arsip surat keluar kepada semua pengguna internal yang sudah login, sementara pengelolaannya tetap hanya TU dan Admin.
+6. Tampilan frontend yang diperlukan
+Surat Keluar
+Arsip
+
+Cari nomor surat atau perihal...
+
+
+Tahun: 2026
+
+Total: 2 surat
+
+
+Undangan Rapat Evaluasi
+Tercatat
+
+SK-001/2026 · 18 November 2026
+
+Pembuat: Wakasek Kurikulum
+Detail surat
+
+
+
+Permohonan Pengadaan Alat
+Tercatat
+
+SK-002/2026 · 18 November 2026
+
+Pembuat: Wakasek Sarpras
+Detail surat
+
+
+
+ Tambah Surat KeluarIlustrasi struktur halaman daftar surat keluar.
+Halaman yang perlu dibuat:
+1. Daftar surat keluar.
+2. Form tambah surat keluar.
+3. Detail surat keluar.
+4. Form edit surat keluar.
+5. Preview dokumen.
+6. Riwayat surat keluar.
+
+7. Hal yang perlu kamu perhatikan
+Ada perbedaan penting antara surat masuk dan surat keluar:
+- Surat masuk memiliki alur disposisi dan tindak lanjut.
+- Surat keluar pada rancangan awal cukup melalui pencatatan dan pengarsipan oleh TU.
+Jadi, jangan membuat disposisi untuk surat keluar kecuali memang sekolah memiliki kebutuhan khusus untuk proses persetujuan atau distribusi surat tersebut.
 
 buatkan issuenya untuk rancangan databasenya dulu baru fiturnya. atribut tablenya bisa disesuaikan dengan form input surat masuknya buat menggunakan bahasa high level only karena untuk memudahkan programmer junior lain dalam memahaminya.
