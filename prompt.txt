@@ -1,78 +1,142 @@
-sekarang kita ke fitur disposisi yang ditujukan untuk role kepalas sekolah jadi fiture ini hanya bisa diakses atau ada di role kepalasa sekolah.
+Alur fitur guru
+Contoh kasus: Kepala Sekolah menerima surat laporan kerusakan laboratorium komputer, kemudian mendisposisikannya kepada Wakasek Sarpras. Wakasek meneruskan tugas pemeriksaan kepada Guru Informatika.
+Wakasek Sarpras
 
-Alur proses disposisi dalam bentuk kalimat
-1. TU menerima surat masuk, baik dalam bentuk fisik maupun digital, kemudian melakukan pencatatan dengan mengisi informasi surat dan mengunggah dokumen ke dalam sistem.
-2. Setelah data surat berhasil disimpan, TU memeriksa kembali informasi dan dokumen yang telah diunggah untuk memastikan tidak ada kesalahan.
-3. Jika sudah benar, TU meneruskan surat tersebut kepada Kepala Sekolah melalui sistem.
-4. Kepala Sekolah menerima notifikasi bahwa terdapat surat masuk yang perlu diperiksa dan didisposisikan.
-5. Kepala Sekolah membuka detail surat untuk melihat informasi surat serta membaca dokumen secara langsung melalui sistem tanpa perlu mengunduhnya.
-6. Setelah membaca surat, Kepala Sekolah membuat disposisi dengan mengisi instruksi atau arahan, menentukan penerima disposisi, menetapkan tingkat prioritas, dan memberikan batas waktu tindak lanjut.
-7. Setelah disposisi disimpan, sistem meneruskan instruksi kepada pihak yang telah ditentukan, seperti Wakasek Kurikulum, Wakasek Kesiswaan, Wakasek Sarpras, atau guru/staf terkait. (jadi bisa ada yg langsung ke guru atau staff tanpa lewat wakasek dan sediakan opsi untuk ke semuanya misalnya untuk surat umum kayak contohnya surat himbauan)
-8. Penerima disposisi membuka surat dan membaca instruksi dari Kepala Sekolah, kemudian melakukan tindak lanjut sesuai arahan yang diberikan.
-9. Setelah menyelesaikan tugas, penerima disposisi memperbarui status tindak lanjut dan mengisi catatan hasil pelaksanaan jika diperlukan.
-10. Kepala Sekolah dan TU dapat melihat perkembangan serta riwayat proses surat melalui sistem. Setelah seluruh tindak lanjut selesai, status surat diperbarui menjadi selesai dan dokumen tetap tersimpan dalam arsip.
+Meneruskan tugas pemeriksaan kepada guru
 
-Informasi surat masuk
-Data ini otomatis diambil dari tabel surat_masuk. Kepala Sekolah tidak perlu menginput ulang.
-No.	Atribut	Keterangan
-1	Nomor agenda	Nomor registrasi surat
-2	Nomor surat	Nomor yang tercantum pada dokumen
-3	Tanggal surat	Tanggal pembuatan surat
-4	Tanggal diterima	Tanggal surat diterima dari TU
-5	Pengirim	Pihak yang mengirimkan surat
-6	Perihal	Ringkasan isi surat
-7	Jenis surat	Laporan, undangan, surat, dan sebagainya
-8	Dokumen surat	File PDF yang dapat dilihat melalui sistem
-Bagian ini hanya untuk ditampilkan, bukan diisi ulang oleh Kepala Sekolah.
+Guru Informatika
 
-Form disposisi
-Bagian ini merupakan data yang diinput oleh Kepala Sekolah.
-No.	Atribut	Keterangan
-1	Nomor disposisi	Nomor identitas disposisi, dibuat otomatis
-2	Tanggal disposisi	Tanggal disposisi dibuat (ini diisi otomatis saat klik submit atau disposisi)
-3	Instruksi	Arahan atau perintah Kepala Sekolah
-4	Penerima disposisi	Unit kerja atau pengguna yang menerima instruksi
-5	Prioritas	Biasa, Penting, atau Segera
-6	Batas waktu	Tenggat penyelesaian tindak lanjut
-7	Catatan tambahan	Informasi tambahan jika diperlukan
+Menerima tugas melalui menu Tugas Saya
+
+Melihat detail surat
+
+Membaca surat asli dan instruksi Wakasek
+
+Melaksanakan tugas
+
+Memeriksa kondisi komputer
+
+Mengirim laporan dan menandai selesai
+
+Wakasek menerima hasil pekerjaan
 
 
-Data tindak lanjut penerima disposisi
-Setelah Kepala Sekolah menyimpan disposisi, penerima akan mendapatkan halaman atau menu disposisi yang ditujukan kepadanya.
+2. Tampilan halaman guru
+Saya menyarankan guru memiliki dua menu utama:
+- Tugas Saya: daftar tugas yang diberikan oleh Wakasek.
+- Riwayat Tugas: tugas yang sudah diselesaikan.
+Contoh tampilan daftar tugas:
+Tugas Saya
+2 Belum selesai
 
-Data yang ditampilkan dan diinput:
-Atribut	Keterangan
-Informasi surat	Identitas surat yang didisposisikan
-Instruksi	Arahan dari Kepala Sekolah
-Prioritas	Tingkat kepentingan
-Batas waktu	Tenggat penyelesaian
-Status tindak lanjut	Belum Diproses, Diproses, Selesai
-Catatan tindak lanjut	Laporan hasil pekerjaan
-Tanggal selesai	Waktu penyelesaian
+Pemeriksaan Laboratorium
+Diproses
 
-Contoh alur tindak lanjut:
+Dari: Wakasek Sarpras
 
-Misalnya, Kepala Sekolah menerima surat laporan mengenai kerusakan fasilitas laboratorium komputer. Kepala Sekolah kemudian memberikan disposisi kepada Wakasek Sarana dan Prasarana (Sarpras) dengan instruksi untuk memeriksa kerusakan tersebut.
-1. Kepala Sekolah memberikan disposisi. Kepala Sekolah mengarahkan Wakasek Sarpras untuk memeriksa kondisi laboratorium komputer dan melaporkan hasil pemeriksaan.
-2. Wakasek Sarpras menerima disposisi. Wakasek membuka menu disposisi, membaca instruksi, kemudian mengubah status menjadi Diproses.
-3. Wakasek meneruskan tugas kepada guru. Karena pemeriksaan membutuhkan bantuan guru yang bertanggung jawab atas laboratorium komputer, Wakasek dapat meneruskan tugas kepada guru tersebut dengan instruksi untuk memeriksa komputer yang rusak.
-4. Guru menerima tugas. Guru membuka menu tugas atau disposisi yang ditujukan kepadanya, kemudian melakukan pemeriksaan dan mengisi hasilnya.
-5. Guru melaporkan hasil pekerjaan. Guru mengubah status menjadi Selesai dan mengisi catatan, misalnya: "Ditemukan 3 unit komputer tidak dapat menyala dan 1 unit mengalami kerusakan monitor."
-6. Wakasek memperbarui tindak lanjut. Wakasek memeriksa laporan dari guru, kemudian menyampaikan hasil pemeriksaan kepada Kepala Sekolah.
-7. Kepala Sekolah memantau hasil. Kepala Sekolah dapat melihat perkembangan dan hasil tindak lanjut disposisi tersebut.
-Tambahan data jika Wakasek dapat meneruskan tugas
-Agar sistem dapat mencatat penerusan tugas dari Wakasek kepada guru atau staf, perlu ditambahkan beberapa atribut:
-Atribut	Keterangan
-Penerima tugas lanjutan	Guru atau staf yang diberikan tugas oleh Wakasek
-Instruksi lanjutan	Arahan khusus dari Wakasek kepada guru/staf
-Tanggal penerusan	Tanggal tugas diteruskan
-Status tugas lanjutan	Belum Diproses, Diproses, Selesai
-Catatan hasil tugas	Laporan pekerjaan dari guru/staf
+Periksa 3 komputer yang tidak dapat menyala di laboratorium.
+Batas waktu: 19 November 2026
 
-Catatan perancangan: Jika fitur penerusan tugas ini diterapkan, guru juga perlu memiliki akun agar dapat menerima tugas, memperbarui status, dan mengisi laporan hasil pekerjaan.
+Tugas #25
+
+Lihat Detail
+Pemeriksaan Jaringan
+Selesai
+
+Dari: Wakasek Sarpras
+
+Pemeriksaan koneksi jaringan laboratorium.
+
+Selesai: 18 November 2026
 
 
-rancangan endpoint API dan request/response body sesuiakan dengan menerapkan kalo basenya itu api/v1/disposisi
+3. Fitur detail tugas dan surat
+Ketika guru membuka tugas, informasi yang ditampilkan sebaiknya meliputi:
+Informasi	Keterangan
+Nomor surat	Nomor surat asli
+Perihal	Judul atau isi pokok surat
+Tanggal surat	Tanggal penerbitan
+File surat	Dokumen asli yang bisa dibuka
+Pemberi tugas	Wakasek yang meneruskan tugas
+Instruksi	Arahan yang harus dilakukan
+Prioritas	Biasa, Penting, Segera
+Batas waktu	Tenggat pengerjaan
+Status	Belum Diproses, Diproses, Selesai
 
+Guru harus bisa menekan tombol Lihat Dokumen untuk membaca surat asli dalam browser tanpa harus mengunduhnya.
+4. Form laporan hasil pekerjaan
+Setelah menyelesaikan pekerjaan, guru mengisi laporan.
+
+Contoh:
+Laporan Tindak Lanjut
+Tugas
+
+Pemeriksaan Laboratorium Komputer
+
+Instruksi
+
+Periksa 3 komputer yang tidak dapat menyala di laboratorium.
+
+
+Status pekerjaan
+Selesai
+Catatan hasil pekerjaan
+
+Contoh laporan yang diisi guru
+Ditemukan 3 komputer mengalami kerusakan pada bagian power supply. Hasil pemeriksaan sudah disampaikan kepada Wakasek Sarpras.
+Tanggal selesai: otomatis dicatat sistem
+Contoh tampilan laporanIni ilustrasi tampilan, bukan form yang terhubung ke backend.
+5. Endpoint API untuk guru
+Karena kamu sudah menggunakan struktur /api/v1, endpoint-nya bisa dibuat seperti berikut:
+Method	Endpoint	Fungsi
+GET	/api/v1/disposisi/inbox	Melihat tugas yang diterima
+GET	/api/v1/disposisi/:id	Melihat detail tugas
+GET	/api/v1/disposisi/:id/dokumen	Melihat dokumen surat asli
+PATCH	/api/v1/disposisi/:id/tindak-lanjut	Mengubah status dan mengisi laporan
+GET	/api/v1/disposisi/:id/riwayat	Melihat riwayat tugas
+
+Endpoint tersebut sebenarnya sudah sebagian besar ada dalam rancangan backend-mu. Jadi, tidak perlu membuat modul baru khusus guru.
+
+Contoh request ketika guru mulai mengerjakan:
+PATCH /api/v1/disposisi/25/tindak-lanjut
+
+
+{
+  "status": "Diproses",
+  "catatan": "Sedang melakukan pemeriksaan komputer."
+}
+
+
+Contoh request ketika guru menyelesaikan tugas:
+{
+  "status": "Selesai",
+  "catatan": "Ditemukan 3 komputer mengalami kerusakan pada power supply."
+}
+
+
+Contoh response:
+{
+  "success": true,
+  "message": "Tindak lanjut berhasil diselesaikan",
+  "data": {
+    "id_disposisi": 25,
+    "status": "Selesai",
+    "catatan": "Ditemukan 3 komputer mengalami kerusakan pada power supply.",
+    "tanggal_selesai": "2026-11-19 10:30:00"
+  }
+}
+
+
+6. Aturan akses yang perlu diterapkan
+Ini penting supaya guru tidak bisa memanipulasi tugas milik pengguna lain.
+- Guru hanya dapat melihat surat yang terkait dengan disposisi yang ditujukan kepadanya.
+- Guru hanya dapat memperbarui status tugas miliknya sendiri.
+- Guru tidak dapat membuat disposisi utama.
+- Guru tidak dapat meneruskan tugas kepada guru lain, kecuali memang diberikan kewenangan khusus.
+- Guru tidak dapat mengubah instruksi dari Wakasek.
+- Setelah status Selesai, guru tidak dapat mengubahnya kembali.
+Satu hal yang perlu dibedakan: ketika guru menekan Selesai, yang selesai adalah tugas guru tersebut, bukan otomatis seluruh disposisi Wakasek atau surat masuknya. Wakasek masih perlu memeriksa laporan guru dan menyampaikan hasil akhir kepada Kepala Sekolah.
+
+Dengan begitu, alur tanggung jawabnya tetap jelas: Guru menyelesaikan tugas → Wakasek memverifikasi hasil → Kepala Sekolah memantau penyelesaian disposisi.
 
 buatkan issuenya untuk rancangan databasenya dulu baru fiturnya. atribut tablenya bisa disesuaikan dengan form input surat masuknya buat menggunakan bahasa high level only karena untuk memudahkan programmer junior lain dalam memahaminya.
