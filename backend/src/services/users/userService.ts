@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { userRepository, type UserRepository } from "./userRepository";
 import { AuthenticationError, InvariantError } from "../../exceptions/clientError";
 import type { CreateUserPayload, LoginPayload } from "./validator/schema";
+import { createAccessToken } from "../../lib/jwt";
 
 export class UserService {
   constructor(private repo: UserRepository = userRepository) {}
@@ -21,20 +22,10 @@ export class UserService {
       throw new InvariantError("nip already exists", 400);
     }
 
-    // 2. Validate role
-    let roleId = payload.roleId;
-    if (!roleId) {
-      // Default to guru_staf if not provided
-      const defaultRole = await this.repo.findRoleByName("guru_staf");
-      if (!defaultRole) {
-        throw new InvariantError("Default role not found in system", 500);
-      }
-      roleId = defaultRole.id;
-    } else {
-      const roleExists = await this.repo.findRoleById(roleId);
-      if (!roleExists) {
-        throw new InvariantError("Role does not exist", 400);
-      }
+    // Public registration always receives the least-privileged default role.
+    const defaultRole = await this.repo.findRoleByName("guru_staf");
+    if (!defaultRole) {
+      throw new InvariantError("Default role not found in system", 500);
     }
 
     // 3. Hash password
@@ -50,7 +41,7 @@ export class UserService {
       name,
       email,
       passwordHash,
-      roleId,
+      roleId: defaultRole.id,
       departmentId: payload.departmentId,
       nip,
       jabatan: payload.jabatan,
@@ -70,10 +61,17 @@ export class UserService {
       throw new AuthenticationError("nip atau password salah");
     }
 
+    const role = await this.repo.findRoleById(user.roleId);
+    if (!role) {
+      throw new AuthenticationError("nip atau password salah");
+    }
+    const accessToken = await createAccessToken(user.id, role.name);
+
     return {
       nip: user.nip,
       name: user.name,
       email: user.email,
+      access_token: accessToken,
     };
   }
 }

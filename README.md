@@ -31,6 +31,7 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 │   │   │       ├── validator/     # schema.ts (validasi body, email, password, role)
 │   │   │       ├── userService.ts # Logic duplikasi & hashing bcrypt
 │   │   │       └── userRepository.ts # Query Drizzle ORM
+│   │   │   └── incomingLetters/      # Modul surat masuk, upload, dan audit trail
 │   │   ├── utils/                 # Utility helpers
 │   │   └── server.ts              # Entry point server Express
 │   └── tests/                     # Unit & integration testing
@@ -63,6 +64,7 @@ DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=password_mariadb_anda
 DB_NAME=belajar_vibecoding
+JWT_SECRET=isi_dengan_secret_acak_minimal_32_karakter
 ```
 
 ### 3. Migrasi & Seed Database
@@ -126,7 +128,6 @@ DB_NAME=belajar_vibecoding
   "name": "Budi Santoso",
   "email": "budi@sekolah.sch.id",
   "password": "Password123!",
-  "roleId": 2,
   "departmentId": 1,
   "nip": "198501012010011001",
   "jabatan": "Staf Tata Usaha"
@@ -172,9 +173,26 @@ DB_NAME=belajar_vibecoding
   "data": {
     "nip": "198501012010011001",
     "name": "admin",
-    "email": "admin@gmail.com"
+    "email": "admin@gmail.com",
+    "access_token": "<JWT>"
   }
 }
 ```
 
 Jika NIP tidak ditemukan atau password salah, endpoint mengembalikan `401` dengan pesan `nip atau password salah`.
+
+Gunakan `access_token` sebagai `Authorization: Bearer <access_token>` untuk endpoint yang memerlukan autentikasi. Pendaftaran publik selalu memberi role `guru_staf`; role tidak dapat dipilih dari payload.
+
+### Surat Masuk
+Semua endpoint berikut memerlukan bearer token. Mutasi hanya dapat dilakukan oleh role `tu` atau `admin`.
+
+- `GET /api/v1/surat-masuk?search=&status=&tahun=&page=1&limit=10`
+- `GET /api/v1/surat-masuk/:id`
+- `POST /api/v1/surat-masuk` (multipart: metadata dan `file_surat`; PDF, DOC, atau DOCX, maksimum 10 MB)
+- `PUT /api/v1/surat-masuk/:id` (multipart, file baru opsional)
+- `DELETE /api/v1/surat-masuk/:id` (soft delete)
+- `POST /api/v1/surat-masuk/:id/teruskan`
+- `GET /api/v1/surat-masuk/:id/dokumen`
+- `GET /api/v1/surat-masuk/:id/riwayat`
+
+Nomor agenda dibuat per tahun tanggal diterima dengan format `SM-001/YYYY`. Setiap create, update, delete, dan penerusan dicatat pada `incoming_letter_histories`.

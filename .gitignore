@@ -1,4 +1,4 @@
-# dependencies (bun install)
+# dependencies (npm install)
 node_modules
 
 # output
@@ -21,6 +21,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
+
+# uploaded incoming letter documents
+backend/data/uploads/
 
 # caches
 .eslintcache

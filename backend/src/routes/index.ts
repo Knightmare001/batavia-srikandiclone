@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { userRouter } from "../services/users/routes";
+import { incomingLetterRouter } from "../services/incomingLetters/routes";
 import { poolConnection } from "../lib/db";
 
 const router = Router();
@@ -29,6 +30,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 
 // Domain Routes
 router.use("/api/v1/auth", userRouter);
+router.use("/api/v1/surat-masuk", incomingLetterRouter);
 
 export default router;
 

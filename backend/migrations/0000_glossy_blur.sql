@@ -1,5 +1,5 @@
 CREATE TABLE `departments` (
-	`id` serial AUTO_INCREMENT NOT NULL,
+	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(100) NOT NULL,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `departments_id` PRIMARY KEY(`id`),
@@ -7,7 +7,7 @@ CREATE TABLE `departments` (
 );
 --> statement-breakpoint
 CREATE TABLE `roles` (
-	`id` serial AUTO_INCREMENT NOT NULL,
+	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(50) NOT NULL,
 	`description` varchar(255),
 	`created_at` timestamp NOT NULL DEFAULT (now()),
@@ -17,7 +17,7 @@ CREATE TABLE `roles` (
 --> statement-breakpoint
 CREATE TABLE `users` (
 	`150` varchar(150) NOT NULL,
-	`id` serial AUTO_INCREMENT NOT NULL,
+	`id` int AUTO_INCREMENT NOT NULL,
 	`nip` varchar(30),
 	`email` varchar(150) NOT NULL,
 	`password_hash` varchar(255) NOT NULL,
