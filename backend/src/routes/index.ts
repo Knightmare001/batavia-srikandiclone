@@ -3,6 +3,7 @@ import { userRouter } from "../services/users/routes";
 import { incomingLetterRouter } from "../services/incomingLetters/routes";
 import { poolConnection } from "../lib/db";
 import { dispositionRouter } from "../services/dispositions/routes";
+import { outgoingLetterRouter } from "../services/outgoingLetters/routes";
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.get("/health", async (_req: Request, res: Response) => {
 router.use("/api/v1/auth", userRouter);
 router.use("/api/v1/surat-masuk", incomingLetterRouter);
 router.use("/api/v1/disposisi", dispositionRouter);
+router.use("/api/v1/surat-keluar", outgoingLetterRouter);
 
 export default router;
 
