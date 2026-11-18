@@ -4,7 +4,6 @@ export interface CreateUserPayload {
   name?: string;
   email: string;
   password: string;
-  roleId?: number;
   departmentId?: number;
   nip: string;
   jabatan?: string;
@@ -40,7 +39,7 @@ export function validateUserPayload(payload: any): asserts payload is CreateUser
     throw new InvariantError("Request body cannot be empty");
   }
 
-  const { email, password, roleId, name, nip } = payload;
+  const { email, password, name, nip } = payload;
 
   // 2. Validate email
   if (!email || typeof email !== "string" || email.trim() === "") {
@@ -61,14 +60,12 @@ export function validateUserPayload(payload: any): asserts payload is CreateUser
   // NIP is required for account registration and login.
   validateNip(nip);
 
-  // 4. Validate role
-  if (roleId !== undefined) {
-    if (typeof roleId !== "number" || isNaN(roleId) || roleId <= 0) {
-      throw new InvariantError("RoleId must be a valid positive number");
-    }
+  // Public registration cannot choose a privileged role.
+  if (payload.roleId !== undefined) {
+    throw new InvariantError("Role assignment is not allowed during registration");
   }
 
-  // 5. Validate name if provided
+  // Validate name if provided
   if (name !== undefined && typeof name !== "string") {
     throw new InvariantError("Name must be a string");
   }

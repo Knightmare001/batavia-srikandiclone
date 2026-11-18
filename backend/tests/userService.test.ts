@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { UserService } from "../src/services/users/userService";
 
+process.env.JWT_SECRET ??= "test-secret-with-at-least-32-characters";
+
 describe("UserService Integration Logic Tests", () => {
   it("should throw error if email already exists", async () => {
     const mockRepo = {
@@ -36,8 +38,8 @@ describe("UserService Integration Logic Tests", () => {
     const mockRepo = {
       findByNip: async () => null,
       findByEmail: async () => null,
-      findRoleById: async (id: number) => ({ id, name: "guru_staf", description: "", createdAt: new Date() }),
-      findRoleByName: async () => null,
+      findRoleById: async () => null,
+      findRoleByName: async () => ({ id: 5, name: "guru_staf", description: "", createdAt: new Date() }),
       insertUser: async (data: any) => {
         insertedData = data;
         return {
@@ -61,7 +63,6 @@ describe("UserService Integration Logic Tests", () => {
       name: "Budi Santoso",
       email: "budi@sekolah.sch.id",
       password: "Password123!",
-      roleId: 2,
       nip: "198501012010011002",
     });
 
@@ -106,6 +107,7 @@ describe("UserService Integration Logic Tests", () => {
         updatedAt: new Date(),
         deletedAt: null,
       }),
+      findRoleById: async () => ({ id: 1, name: "admin", description: "", createdAt: new Date() }),
     };
 
     const result = await new UserService(mockRepo as any).loginUser({
@@ -113,7 +115,10 @@ describe("UserService Integration Logic Tests", () => {
       password: "Password123!",
     });
 
-    assert.deepEqual(result, { nip: "198501012010011001", name: "admin", email: "admin@gmail.com" });
+    assert.equal(result.nip, "198501012010011001");
+    assert.equal(result.name, "admin");
+    assert.equal(result.email, "admin@gmail.com");
+    assert.equal(typeof result.access_token, "string");
     assert.equal("passwordHash" in result, false);
   });
 
@@ -135,6 +140,7 @@ describe("UserService Integration Logic Tests", () => {
         updatedAt: new Date(),
         deletedAt: null,
       }),
+      findRoleById: async () => ({ id: 1, name: "admin", description: "", createdAt: new Date() }),
     } as any);
 
     await assert.rejects(

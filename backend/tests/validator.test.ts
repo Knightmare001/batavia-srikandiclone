@@ -31,8 +31,8 @@ describe("User Validator Tests", () => {
 
   it("should fail on invalid roleId", () => {
     assert.throws(
-      () => validateUserPayload({ email: "valid@gmail.com", password: "validPassword123", roleId: -1, nip: "12345678" }),
-      /RoleId must be a valid positive number/
+      () => validateUserPayload({ email: "valid@gmail.com", password: "validPassword123", roleId: 1, nip: "12345678" }),
+      /Role assignment is not allowed during registration/
     );
   });
 
@@ -42,7 +42,6 @@ describe("User Validator Tests", () => {
         email: "admin@gmail.com",
         password: "admin123",
         name: "Admin User",
-        roleId: 1,
         nip: "198501012010011001",
       })
     );
