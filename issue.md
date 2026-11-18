@@ -1,226 +1,217 @@
-# 📋 Issue: Perancangan Skema Database & Modul Terpadu: Arsip Global, Dashboard Multi-Role, Manajemen Pengguna, Notifikasi, dan Audit Trail Lengkap
+# 📋 Issue: Perancangan Arsitektur Frontend Aplikasi Persuratan & Kearsipan Sekolah Islam (Desain Ala SRIKANDI)
 
 ## 📌 Ringkasan Masalah & Tujuan
-Inisiatif ini bertujuan untuk melengkapi ekosistem persuratan dan pengarsipan digital sekolah dengan menyatukan seluruh komponen pendukung utama:
-1. **Pusat Arsip & Pencarian Global (`/api/v1/arsip`)**: Satu pintu pencarian cerdas yang menggabungkan arsip surat masuk dan surat keluar, dilengkapi statistik serta filter komprehensif tanpa perlu membuka folder Google Drive.
-2. **Dashboard Dinamis Multi-Role (`/api/v1/dashboard`)**: Menampilkan ringkasan informasi dan metrik penting yang disesuaikan secara otomatis berdasarkan role pengguna yang sedang login (Admin, TU, Kepala Sekolah, Wakasek, Guru/Staf).
-3. **Manajemen Pengguna & Departemen Lengkap (`/api/v1/users` & `/api/v1/departments`)**: Fitur administrasi untuk Admin dalam mengelola akun pengguna (daftar, detail, edit, aktif/nonaktifkan akun via soft-delete/status, ubah password) serta pengelolaan unit kerja/departemen sekolah.
-4. **Modul Notifikasi Internal (`/api/v1/notifications`)**: Sistem pemberitahuan berbasis database untuk memberi tahu pihak terkait ketika ada surat masuk baru, disposisi baru, penerusan tugas, atau laporan penyelesaian tugas.
-5. **Penyempurnaan Audit Trail Terpadu**: Standardisasi pencatatan log aktivitas di seluruh modul yang bersifat *immutable* (hanya bisa ditambah/insert, tidak bisa diedit atau dihapus).
+Inisiatif ini bertujuan untuk membangun antarmuka pengguna (Frontend) untuk Sistem Informasi Persuratan dan Kearsipan Digital Sekolah. 
+
+Antarmuka ini mengadopsi pola tata letak aplikasi **SRIKANDI** (Sistem Kearsipan Dinamis Terintegrasi) dengan sentuhan identitas **Madrasah / Pesantren / Sekolah Islam**:
+1. **Navigasi Sisi Kiri (Sidebar Navigation)**: Menu navigasi utama diletakkan di sebelah kiri dengan ikon representatif, status aktif yang jelas, serta collapsible/responsive untuk perangkat mobile.
+2. **Tema Minimalis & Elegan**: 
+   - Mode Terang (*Light Mode*): Dominan warna **Putih bersih** (`bg-white` / `bg-slate-50`) dengan teks gelap kontras tinggi.
+   - Mode Gelap (*Dark Mode*): Dominan warna **Hitam / Slate pekat** (`dark:bg-slate-900`) yang ramah di mata.
+   - Aksen Khas Madrasah/Pesantren: Sentuhan warna **Hijau Islami / Emerald** (`emerald-600` / `emerald-700`) sebagai warna primer untuk tombol aksi utama (*CTA*), badge status, highlight navigasi aktif, dan kartu ringkasan.
+3. **Tech Stack Modern**:
+   - **Framework**: **React 19 / Versi Terbaru** (menggunakan Vite / Next.js bundler).
+   - **Styling**: **Tailwind CSS v4** (atau v3.4+ dengan utility classes modern).
+   - **Ikon**: Lucide React (`lucide-react`) untuk set ikon yang bersih dan konsisten.
+   - **Client State / Fetching**: Fetch/Axios terpusat yang terintegrasi dengan Bearer token JWT backend.
+4. **Struktur Direktori**: Ditempatkan di dalam folder `frontend/` mengikuti kaidah *Industry Best Practices* (Modular, Reusable Components, Custom Hooks, dan Context API).
 
 ---
 
-## 🗄️ Bagian 1: Rancangan Skema Database (Drizzle ORM)
+## 🎨 Bagian 1: Panduan Desain & Tata Letak Antarmuka (Layout SRIKANDI)
 
-Untuk mendukung modul-modul di atas, diperlukan penambahan tabel **Notifikasi** dan tabel **Log Audit Global Sistem**, serta pemanfaatan tabel master yang sudah ada:
+```text
++-----------------------------------------------------------------------------------------+
+| [LOGO MADRASAH] Sistem Kearsipan Digital                 [Cari...] [🔔 Notif] [👤 Profil]|
++-----------------------+-----------------------------------------------------------------+
+| 📊 Dashboard          | 📌 Dashboard / Surat Masuk / Disposisi                           |
+| 📥 Surat Masuk (TU)   |-----------------------------------------------------------------|
+| 📤 Surat Keluar (TU)  |                                                                 |
+| 🔀 Disposisi (Kepsek) |              [KONTEN HALAMAN UTAMA / DATA TABEL]                 |
+| 📋 Tugas Saya (Guru)  |                                                                 |
+| 🗄️ Arsip & Pencarian |                                                                 |
+| 👥 Manajemen User     |                                                                 |
+| ⚙️ Pengaturan         |                                                                 |
+|                       |                                                                 |
+| [🌙 Toggle Dark Mode] |                                                                 |
+| [🚪 Logout]           |                                                                 |
++-----------------------+-----------------------------------------------------------------+
+```
 
-### 1. Tabel Baru: `notifications` (Pemberitahuan Pengguna)
-Menyimpan notifikasi yang ditujukan kepada masing-masing pengguna:
-- **`id`**: `int`, primary key, auto increment.
-- **`user_id`**: `int`, not null, foreign key ke `users.id` (penerima notifikasi).
-- **`judul`**: `varchar(150)`, not null (misal: *"Disposisi Baru Diterima"*, *"Tugas Diselesaikan"*).
-- **`pesan`**: `text`, not null (isi pesan singkat notifikasi).
-- **`tipe`**: `varchar(50)`, not null (kategori notifikasi: `surat_masuk`, `disposisi`, `tugas_selesai`, `sistem`).
-- **`referensi_id`**: `int`, nullable (ID entitas terkait, misalnya ID surat atau ID disposisi).
-- **`link_url`**: `varchar(255)`, nullable (tautan cepat menuju halaman terkait di antarmuka frontend).
-- **`is_read`**: `boolean` / `tinyint(1)`, not null, default: `false` (penanda status telah dibaca).
-- **`read_at`**: `timestamp`, nullable (waktu pengguna membaca notifikasi).
-- **`created_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, not null.
-
----
-
-### 2. Tabel Baru: `system_audit_logs` (Audit Trail Aktivitas Global)
-Mencatat seluruh aksi penting di sistem secara terpusat dan *immutable*:
-- **`id`**: `int`, primary key, auto increment.
-- **`user_id`**: `int`, not null, foreign key ke `users.id` (pelaku aksi).
-- **`role_name`**: `varchar(50)`, not null (role pelaku saat melakukan aksi).
-- **`modul`**: `varchar(50)`, not null (`auth`, `surat_masuk`, `surat_keluar`, `disposisi`, `users`, `departments`).
-- **`aktivitas`**: `varchar(100)`, not null (contoh: *"Mencatat surat masuk"*, *"Membuat disposisi"*, *"Menyelesaikan tugas"*, *"Mengubah password user"*).
-- **`deskripsi`**: `text`, nullable (detail informasi atau ringkasan perubahan).
-- **`ip_address`**: `varchar(45)`, nullable (IP client pengirim request).
-- **`created_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, not null.
-
----
-
-### 3. Penyelarasan Tabel Eksisting
-- **Tabel `users`**:
-  - Kolom `deleted_at` digunakan sebagai penanda status aktif/nonaktif akun (jika `deleted_at IS NOT NULL`, akun dianggap nonaktif dan ditolak saat login).
-- **Tabel `departments`**:
-  - Sudah memiliki struktur: `id`, `name`, `createdAt`.
-- **Tabel `incoming_letters` & `outgoing_letters`**:
-  - Menjadi sumber data terpadu untuk modul Arsip dan metrik Dashboard.
-
----
-
-## 🚀 Bagian 2: Spesifikasi Fitur & Endpoint API
+### 1. Tata Letak (Layout Hierarchy)
+- **Sidebar Kiri**:
+  - Logo instansi sekolah + nama aplikasi (*e-Arsip Madrasah*).
+  - Menu dinamis disesuaikan dengan **Role** pengguna dari payload JWT:
+    - *Admin*: Dashboard, Manajemen User, Kelola Departemen, Arsip Global, Audit Trail.
+    - *TU*: Dashboard, Surat Masuk (Input/List), Surat Keluar (Input/List), Arsip Global.
+    - *Kepala Sekolah*: Dashboard, Menunggu Disposisi, Monitoring Disposisi, Arsip Global.
+    - *Wakasek / Kepala Unit*: Dashboard, Disposisi Diterima, Teruskan Tugas, Laporan Guru.
+    - *Guru / Staf*: Dashboard, Tugas Saya, Riwayat Tugas, Arsip Global.
+  - Tombol alih mode gelap/terang (*Dark/Light Mode Switcher*) dan tombol Logout di bagian bawah sidebar.
+- **Top Header**:
+  - Kolom pencarian cepat global (*Global Quick Search*).
+  - Lonceng notifikasi interaktif (`/api/v1/notifications`) dengan penanda titik merah (*unread badge*) dan popover list notifikasi.
+  - Identitas akun yang login (Nama, NIP, Badge Role).
+- **Area Konten Utama (Main Content)**:
+  - Header halaman (Breadcrumbs, Judul Halaman, Tombol Aksi Primer Hijau).
+  - Kartu Ringkasan Metrik (Statistik dengan aksen hijau emerald).
+  - Tabel Data dengan fitur pencarian real-time, filter tanggal/status, pagination, dan tombol pratinjau dokumen PDF *in-app modal*.
 
 ---
 
-### MODUL 1: Pusat Arsip & Pencarian Global (`/api/v1/arsip`)
+## 📁 Bagian 2: Struktur Direktori Target (`frontend/`)
 
-Menyediakan pencarian gabungan (*federated search*) antara Surat Masuk dan Surat Keluar dalam satu antarmuka terpusat.
+Terapkan hierarki direktori berbasis best practice berikut:
 
-#### 1. `GET /api/v1/arsip`
-Mengambil daftar gabungan arsip surat masuk dan surat keluar.
-- **Akses**: Semua user terotentikasi.
-- **Query Parameter**:
-  - `search`: Pencarian teks bebas (pada nomor surat, perihal, pengirim, atau tujuan).
-  - `jenis`: Filter jenis arsip (`surat_masuk` atau `surat_keluar`). Jika kosong, tampilkan keduanya.
-  - `tahun`: Filter tahun (contoh: `2026`).
-  - `bulan`: Filter bulan (1-12).
-  - `status`: Filter status dokumen (misal: `Selesai`, `Tercatat`, `Didisposisikan`).
-  - `page` & `limit`: Pagination.
-- **Response Format (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "data": [
-      {
-        "id": 1,
-        "jenis_arsip": "surat_masuk",
-        "nomor_agenda": "SM-001/2026",
-        "nomor_surat": "001/SARPRAS/XI/2026",
-        "perihal": "Laporan Kerusakan Fasilitas",
-        "pihak_terkait": "Wakasek Sarpras",
-        "tanggal": "2026-11-10",
-        "status": "Selesai"
-      },
-      {
-        "id": 1,
-        "jenis_arsip": "surat_keluar",
-        "nomor_agenda": "SK-001/2026",
-        "nomor_surat": "050/SMK/XI/2026",
-        "perihal": "Undangan Rapat Evaluasi",
-        "pihak_terkait": "Seluruh Guru",
-        "tanggal": "2026-11-18",
-        "status": "Tercatat"
-      }
-    ],
-    "pagination": { "page": 1, "limit": 10, "total": 2, "total_pages": 1 }
-  }
-  ```
-
-#### 2. `GET /api/v1/arsip/:jenis/:id`
-Melihat detail lengkap arsip berdasarkan jenis (`surat_masuk` atau `surat_keluar`) dan ID.
-
-#### 3. `GET /api/v1/arsip/statistik`
-Ringkasan statistik arsip untuk grafik dan pemantauan cepat:
-- Total surat masuk tahun berjalan.
-- Total surat keluar tahun berjalan.
-- Surat masuk berdasarkan status (`Draft`, `Menunggu Kepala Sekolah`, `Didisposisikan`, `Selesai`).
-- Rekapitulasi per bulan.
-
----
-
-### MODUL 2: Dashboard Dinamis Multi-Role (`GET /api/v1/dashboard`)
-
-Mengembalikan data statistik dan ringkasan tugas yang dipersonalisasi sesuai role pengguna yang login (berdasarkan token JWT).
-- **Akses**: Semua user terotentikasi.
-- **Logika Output Berdasarkan Role**:
-  - **Admin**:
-    - Total pengguna aktif, total departemen, rincian user per role, dan log audit sistem terbaru.
-  - **Tata Usaha (TU)**:
-    - Total surat masuk, total surat keluar, surat masuk yang belum diteruskan (Draft), dan surat yang masih menunggu Kepala Sekolah.
-  - **Kepala Sekolah**:
-    - Jumlah surat yang menunggu disposisi, progres disposisi berjalan, dan daftar surat masuk prioritas tinggi (Segera/Penting).
-  - **Wakasek / Kepala Unit**:
-    - Disposisi yang diterima unit kerjanya, tugas yang sedang diteruskan ke guru, dan laporan guru yang menunggu verifikasi.
-  - **Guru / Staf**:
-    - Total tugas aktif (Belum Diproses, Diproses), total tugas selesai, dan tugas dengan batas waktu terdekat.
-- **Contoh Response (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "role": "tu",
-    "data": {
-      "total_surat_masuk": 42,
-      "total_surat_keluar": 18,
-      "surat_menunggu_disposisi": 3,
-      "surat_terbaru": [ ... ]
-    }
-  }
-  ```
+```text
+frontend/
+├── public/                     # Favicon, logo madrasah, aset statis
+├── src/
+│   ├── assets/                 # Gambar lokal, ilustrasi kosong (empty states)
+│   ├── components/             # Reusable UI Components
+│   │   ├── common/             # Tombol, Input, Modal, Dropdown, Badge, Pagination
+│   │   │   ├── Button.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── Badge.tsx
+│   │   │   └── Table.tsx
+│   │   ├── layout/             # Komponen kerangka aplikasi
+│   │   │   ├── AppLayout.tsx   # Wrapper Sidebar + Header + Content
+│   │   │   ├── Sidebar.tsx     # Navigasi kiri ala SRIKANDI
+│   │   │   ├── Header.tsx      # Top bar (profil, notifikasi)
+│   │   │   └── ThemeToggle.tsx # Dark mode toggle
+│   │   ├── pdf/                # Komponen PDF viewer / inline preview
+│   │   │   └── DocumentViewer.tsx
+│   │   └── notification/       # Dropdown popover notifikasi
+│   │       └── NotificationBell.tsx
+│   ├── context/                # Global React Context
+│   │   ├── AuthContext.tsx     # State login, user info, logout, token JWT
+│   │   └── ThemeContext.tsx    # State tema (light/dark mode)
+│   ├── hooks/                  # Custom React Hooks
+│   │   ├── useAuth.ts
+│   │   ├── useTheme.ts
+│   │   └── useDebounce.ts      # Optimasi pencarian cepat
+│   ├── pages/                  # Halaman Aplikasi Berdasarkan Modul
+│   │   ├── auth/
+│   │   │   └── LoginPage.tsx   # Halaman login modern (NIP + Password)
+│   │   ├── dashboard/
+│   │   │   └── DashboardPage.tsx # Dashboard adaptif sesuai role
+│   │   ├── suratMasuk/
+│   │   │   ├── SuratMasukListPage.tsx
+│   │   │   ├── SuratMasukCreatePage.tsx
+│   │   │   └── SuratMasukDetailPage.tsx
+│   │   ├── suratKeluar/
+│   │   │   ├── SuratKeluarListPage.tsx
+│   │   │   └── SuratKeluarCreatePage.tsx
+│   │   ├── disposisi/
+│   │   │   ├── DisposisiInboxPage.tsx
+│   │   │   ├── DisposisiCreatePage.tsx
+│   │   │   └── DisposisiDetailPage.tsx
+│   │   ├── tugasGuru/
+│   │   │   ├── TugasSayaPage.tsx
+│   │   │   └── RiwayatTugasPage.tsx
+│   │   ├── arsip/
+│   │   │   └── ArsipGlobalPage.tsx # Satu pintu pencarian arsip
+│   │   └── admin/
+│   │       ├── UserManagementPage.tsx
+│   │       └── DepartmentManagementPage.tsx
+│   ├── services/               # API Call Integration (Axios / Fetch Client)
+│   │   ├── api.ts              # Interceptor otomatis pasang Bearer Token
+│   │   ├── authService.ts
+│   │   ├── letterService.ts
+│   │   ├── dispositionService.ts
+│   │   └── notificationService.ts
+│   ├── types/                  # TypeScript Interfaces & Types
+│   │   └── index.ts
+│   ├── App.tsx                 # Routing konfigurasi (React Router v7 / v6)
+│   ├── main.tsx                # Entry point React
+│   └── index.css               # Setup Tailwind CSS directives
+├── .env.example
+├── index.html
+├── package.json
+├── tailwind.config.js          # Konfigurasi palet warna emerald & dark mode
+├── tsconfig.json
+└── vite.config.ts
+```
 
 ---
 
-### MODUL 3: Manajemen Pengguna & Departemen (Admin)
+## 🎨 Bagian 3: Konfigurasi Desain & Palet Warna Tailwind
 
-#### Pengelolaan Akun Pengguna (`/api/v1/users`)
-- `GET /api/v1/users`: Menampilkan daftar semua pengguna beserta info role dan departemen (dukungan search & pagination).
-- `GET /api/v1/users/:id`: Detail profil pengguna tertentu.
-- `PUT /api/v1/users/:id`: Memperbarui informasi profil pengguna (nama, email, NIP, role, departemen, jabatan).
-- `PATCH /api/v1/users/:id/status`: Mengaktifkan atau menonaktifkan akun (`deleted_at` set NULL atau timestamp).
-- `PATCH /api/v1/users/:id/password`: Mengubah password akun pengguna oleh Admin (menggunakan hash bcrypt baru).
-
-#### Pengelolaan Departemen / Unit Kerja (`/api/v1/departments`)
-- `GET /api/v1/departments`: Menampilkan seluruh daftar departemen sekolah.
-- `POST /api/v1/departments`: Menambahkan unit kerja baru (nama unit harus unik).
-- `PUT /api/v1/departments/:id`: Memperbarui nama departemen.
-- **Akses**: Khusus Role **Admin**.
+### Palet Warna Utama:
+- **Primary / Nuansa Madrasah**: `emerald-600` (`#059669`) dan `emerald-700` (`#047857`) untuk aksen, tombol utama, dan highlight aktif.
+- **Background Light**: `slate-50` (`#f8fafc`) untuk canvas dasar, `white` (`#ffffff`) untuk kartu konten.
+- **Background Dark**: `slate-900` (`#0f172a`) untuk canvas gelap, `slate-800` (`#1e293b`) untuk sidebar dan kartu.
+- **Border & Separator**: `slate-200` (`dark:border-slate-700`).
+- **Status Badges**:
+  - *Selesai / Aktif*: `bg-emerald-100 text-emerald-800` (`dark:bg-emerald-950 dark:text-emerald-300`).
+  - *Menunggu / Proses*: `bg-amber-100 text-amber-800` (`dark:bg-amber-950 dark:text-amber-300`).
+  - *Segera / Penting*: `bg-rose-100 text-rose-800` (`dark:bg-rose-950 dark:text-rose-300`).
 
 ---
 
-### MODUL 4: Sistem Notifikasi Internal (`/api/v1/notifications`)
+## 📝 Bagian 4: Panduan Langkah Demi Langkah (Untuk Junior Programmer)
 
-Pemberitahuan otomatis saat terjadi peristiwa penting dalam alur kerja:
-- **Pemicu Otomatis (Event Triggers)**:
-  1. TU meneruskan surat masuk $\rightarrow$ Notifikasi ke Kepala Sekolah.
-  2. Kepala Sekolah membuat disposisi $\rightarrow$ Notifikasi ke Wakasek/Unit kerja tujuan.
-  3. Wakasek meneruskan tugas $\rightarrow$ Notifikasi ke Guru/Staf pelaksana.
-  4. Guru menyelesaikan tugas $\rightarrow$ Notifikasi ke Wakasek pemberi tugas.
-  5. Seluruh disposisi tuntas $\rightarrow$ Notifikasi ke Kepala Sekolah dan TU.
-- **Endpoints**:
-  - `GET /api/v1/notifications`: Menampilkan notifikasi milik pengguna yang sedang login (dengan info jumlah belum dibaca).
-  - `PATCH /api/v1/notifications/:id/read`: Menandai satu notifikasi telah dibaca.
-  - `PATCH /api/v1/notifications/read-all`: Menandai seluruh notifikasi milik pengguna telah dibaca.
+1. **Fase 1: Inisialisasi Proyek Frontend**
+   - Buat proyek React TypeScript baru di folder `frontend/` menggunakan Vite:
+     ```bash
+     npm create vite@latest frontend -- --template react-ts
+     ```
+   - Instal dependensi utama:
+     ```bash
+     cd frontend
+     npm install
+     npm install react-router-dom lucide-react clsx tailwind-merge
+     npm install -D tailwindcss postcss autoprefixer
+     npx tailwindcss init -p
+     ```
 
----
+2. **Fase 2: Konfigurasi Tailwind & Dark Mode**
+   - Aktifkan class-based dark mode pada `tailwind.config.js`:
+     ```js
+     module.exports = {
+       darkMode: 'class',
+       content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+       theme: {
+         extend: {
+           colors: {
+             primary: {
+               50: '#ecfdf5',
+               500: '#10b981',
+               600: '#059669',
+               700: '#047857',
+             }
+           }
+         }
+       }
+     }
+     ```
 
-### MODUL 5: Penguatan Audit Trail Terpadu
+3. **Fase 3: Global State & API Client**
+   - Buat `AuthContext` untuk menyimpan token JWT, identitas user, role, dan fungsi login/logout.
+   - Buat client Axios/Fetch di `src/services/api.ts` yang otomatis menyisipkan header:
+     ```ts
+     headers: { Authorization: `Bearer ${token}` }
+     ```
 
-- Setiap operasi penting di backend otomatis mencatat riwayat ke tabel `system_audit_logs`.
-- Data audit trail bersifat **Append-Only** (hanya `INSERT`, tidak ada endpoint `PUT` atau `DELETE` untuk data log).
-- Format log menyimpan waktu presisi, identitas pelaku (`userId` & `role`), modul yang diakses, dan rincian aktivitas.
+4. **Fase 4: Kerangka Tata Letak SRIKANDI (`AppLayout`)**
+   - Bangun komponen `Sidebar.tsx` dengan daftar menu berikon yang dinamis berdasarkan role akun login.
+   - Bangun komponen `Header.tsx` lengkap dengan popover notifikasi dan tombol switch dark mode.
 
----
-
-## 📝 Panduan Implementasi Bertahap (High-Level untuk Junior Programmer)
-
-1. **Fase 1: Skema Database & Migrasi**
-   - Definisikan tabel `notifications` dan `system_audit_logs` di [`backend/src/lib/schema.ts`](file:///home/egi/belajar_kode/Belajar_vibecoding/backend/src/lib/schema.ts).
-   - Jalankan migrasi: `npm run db:generate` dan `npm run db:push`.
-
-2. **Fase 2: Layanan Notifikasi Terpadu (`notificationService.ts`)**
-   - Buat fungsi utilitas `sendNotification(userId, title, message, type, refId, linkUrl)` yang dapat dipanggil dari service surat masuk, disposisi, dan pengguna.
-
-3. **Fase 3: Layanan Audit Log Helper (`auditLogger.ts`)**
-   - Buat helper fungsi untuk mencatat aktivitas penting secara asynchronous tanpa menghambat respon utama HTTP.
-
-4. **Fase 4: Modul Manajemen Pengguna & Departemen**
-   - Lengkapi handler endpoint CRUD user dan department di bawah otorisasi ketat role Admin (`authorizeRoles("admin")`).
-
-5. **Fase 5: Modul Pusat Arsip Global (`archiveService.ts`)**
-   - Gabungkan query surat masuk dan surat keluar menggunakan `UNION` atau mapping Drizzle ORM dengan dukungan filter tahun, bulan, jenis, dan kata kunci pencarian.
-
-6. **Fase 6: Modul Dashboard Dinamis (`dashboardService.ts`)**
-   - Buat logika percabangan berdasarkan `req.authUser.role` untuk mengambil agregasi data statistik spesifik tiap peran pengguna.
-
-7. **Fase 7: Automated Testing**
-   - Tulis unit & integration test untuk memvalidasi:
-     - Filter pencarian arsip gabungan.
-     - Respons metrik dashboard untuk masing-masing role.
-     - Operasi manajemen user (status aktif/nonaktif, edit password).
-     - Alur pembuatan notifikasi dan penandaan status baca.
+5. **Fase 5: Integrasi Halaman Kunci**
+   - **Login Page**: Form login NIP & Password dengan tema islami modern.
+   - **Dashboard**: Widget metrik ringkasan data yang disesuaikan dengan role.
+   - **Surat Masuk & Surat Keluar**: Tabel data dengan modal *PDF Document Viewer* (menampilkan dokumen langsung via URL endpoint `/dokumen`).
+   - **Disposisi & Tugas Guru**: Formulir tindak lanjut laporan tugas dengan feedback visual status.
+   - **Pusat Arsip Global**: Halaman pencarian terpadu surat masuk & keluar dengan filter instan.
 
 ---
 
 ## 🎯 Acceptance Criteria
-- [ ] Tabel `notifications` dan `system_audit_logs` tersinkronisasi di database MariaDB.
-- [ ] Endpoint `GET /api/v1/arsip` dapat mencari dan menampilkan gabungan data surat masuk dan surat keluar secara akurat.
-- [ ] Endpoint `GET /api/v1/dashboard` mengembalikan statistik yang sesuai dengan role pengguna yang sedang login.
-- [ ] Admin dapat melihat, mengubah informasi, menonaktifkan akun, dan me-reset password pengguna lain.
-- [ ] Admin dapat menambah dan mengedit data departemen/unit kerja.
-- [ ] Pengguna menerima notifikasi otomatis saat ada disposisi atau tugas baru yang ditujukan kepadanya.
-- [ ] Pengguna dapat menandai notifikasi telah dibaca (`/read` dan `/read-all`).
-- [ ] Seluruh aktivitas penting tercatat pada log audit sistem dan tidak dapat dimanipulasi oleh pengguna biasa.
-- [ ] Seluruh unit test lulus pengujian 100%.
+- [ ] Folder `frontend/` terinisialisasi menggunakan **React terbaru + TypeScript + Tailwind CSS**.
+- [ ] Tata letak mengadopsi navigasi **Sidebar Kiri berikon ala SRIKANDI** yang rapi dan responsif.
+- [ ] Skema warna bernuansa **Madrasah/Islami** (Dominan putih/hitam dengan aksen hijau emerald).
+- [ ] Fitur **Dark Mode & Light Mode** dapat berganti secara mulus dan persisten.
+- [ ] Dokumen surat PDF dapat langsung dipratinjau (*inline preview*) di dalam aplikasi tanpa perlu diunduh manual.
+- [ ] Menu navigasi otomatis menyesuaikan dengan **Role pengguna** (Admin, TU, Kepala Sekolah, Wakasek, Guru).
+- [ ] Terhubung penuh dengan endpoint backend (`/api/v1/auth`, `/api/v1/surat-masuk`, `/api/v1/surat-keluar`, `/api/v1/disposisi`, `/api/v1/arsip`, `/api/v1/dashboard`, `/api/v1/notifications`).

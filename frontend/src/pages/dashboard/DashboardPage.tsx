@@ -1,0 +1,13 @@
+import { ArrowUpRight, Archive, FileCheck2, FileClock, FileInput, FileOutput, ListTodo, ShieldCheck, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../../services/api";
+import { useAuth } from "../../hooks/useAuth";
+type DashboardData = Record<string, unknown>;
+const iconList = [FileInput, FileOutput, FileClock, FileCheck2, Users, ListTodo, Archive, ShieldCheck];
+export function DashboardPage() {
+  const { user } = useAuth(); const [data, setData] = useState<DashboardData>({}), [error, setError] = useState("");
+  useEffect(() => { void api<{ data: DashboardData }>("/dashboard").then((r) => setData(r.data)).catch((e: Error) => setError(e.message)); }, []);
+  const entries = Object.entries(data).filter(([, v]) => typeof v === "number");
+  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">RINGKASAN HARI INI</span><h1>Assalamu’alaikum, {user?.name?.split(" ")[0]}</h1><p>Berikut ringkasan aktivitas persuratan untuk Anda.</p></div><Link className="button button-secondary" to="/arsip"><Archive size={16} /> Buka arsip</Link></div>{error && <div className="error-box">{error}</div>}<div className="metric-grid">{entries.length ? entries.map(([key, value], index) => { const Icon = iconList[index % iconList.length]; return <article className="metric-card" key={key}><div className="metric-top"><span className="metric-icon"><Icon size={19} /></span><span className="metric-period">Ringkasan</span></div><div className="metric-value">{Number(value).toLocaleString("id-ID")}</div><div className="metric-label">{key.replaceAll("_", " ")}</div></article>; }) : Array.from({ length: 4 }, (_, i) => <article className="metric-card skeleton-card" key={i}><span /><span /><span /></article>)}</div><div className="dashboard-lower"><section className="panel welcome-panel"><div className="panel-icon"><ShieldCheck size={22} /></div><div><span className="eyebrow">RUANG KERJA DIGITAL</span><h2>Arsip tertib, layanan lebih tangkas.</h2><p>Kelola surat, tindak lanjut, dan jejak aktivitas sekolah dari satu tempat.</p><Link to="/arsip" className="inline-link">Jelajahi arsip <ArrowUpRight size={15} /></Link></div></section><section className="panel shortcut-panel"><div className="panel-heading"><div><span className="eyebrow">AKSES CEPAT</span><h2>Menu utama</h2></div></div><div className="shortcut-grid"><Link to="/arsip"><Archive size={18} /><span>Arsip global</span><ArrowUpRight size={14} /></Link><Link to={user?.role === "guru_staf" ? "/tugas" : "/disposisi"}><ListTodo size={18} /><span>{user?.role === "guru_staf" ? "Tugas saya" : "Disposisi"}</span><ArrowUpRight size={14} /></Link></div></section></div></div>;
+}
