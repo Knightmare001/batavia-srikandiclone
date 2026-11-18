@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, timestamp, int, date } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, timestamp, int, date, datetime } from "drizzle-orm/mysql-core";
 
 // 1. Roles Table
 export const roles = mysqlTable("roles", {
@@ -19,7 +19,7 @@ export const departments = mysqlTable("departments", {
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   nip: varchar("nip", { length: 30 }).unique(),
-  name: varchar("150", { length: 150 }).notNull(),
+  name: varchar("name", { length: 150 }).notNull(),
   email: varchar("email", { length: 150 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   roleId: int("role_id")
@@ -68,6 +68,28 @@ export const incomingLetterHistories = mysqlTable("incoming_letter_histories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const dispositions = mysqlTable("dispositions", {
+  id: int("id").autoincrement().primaryKey(),
+  letterId: int("letter_id").notNull().references(() => incomingLetters.id, { onDelete: "cascade" }),
+  parentDispositionId: int("parent_disposition_id").references((): any => dispositions.id),
+  nomorDisposisi: varchar("nomor_disposisi", { length: 50 }).notNull().unique(),
+  tanggalDisposisi: timestamp("tanggal_disposisi").defaultNow().notNull(),
+  fromUserId: int("from_user_id").notNull().references(() => users.id),
+  targetType: varchar("target_type", { length: 20 }).notNull(),
+  toDepartmentId: int("to_department_id").references(() => departments.id),
+  toUserId: int("to_user_id").references(() => users.id),
+  instruksi: text("instruksi").notNull(),
+  catatanTambahan: text("catatan_tambahan"),
+  prioritas: varchar("prioritas", { length: 20 }).default("Biasa").notNull(),
+  batasWaktu: date("batas_waktu", { mode: "string" }),
+  statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 }).default("Belum Diproses").notNull(),
+  catatanTindakLanjut: text("catatan_tindak_lanjut"),
+  tanggalSelesai: datetime("tanggal_selesai", { mode: "date" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type NewRole = typeof roles.$inferInsert;
@@ -82,4 +104,5 @@ export type IncomingLetter = typeof incomingLetters.$inferSelect;
 export type NewIncomingLetter = typeof incomingLetters.$inferInsert;
 
 export type IncomingLetterHistory = typeof incomingLetterHistories.$inferSelect;
+export type Disposition = typeof dispositions.$inferSelect;
 
