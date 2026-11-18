@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, timestamp, int, date, datetime } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, timestamp, int, date, datetime, boolean } from "drizzle-orm/mysql-core";
 
 // 1. Roles Table
 export const roles = mysqlTable("roles", {
@@ -125,6 +125,30 @@ export const outgoingLetterHistories = mysqlTable("outgoing_letter_histories", {
   userId: int("user_id").notNull().references(() => users.id),
   aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
   keterangan: varchar("keterangan", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const notifications = mysqlTable("notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  judul: varchar("judul", { length: 150 }).notNull(),
+  pesan: text("pesan").notNull(),
+  tipe: varchar("tipe", { length: 50 }).notNull(),
+  referensiId: int("referensi_id"),
+  linkUrl: varchar("link_url", { length: 255 }),
+  isRead: boolean("is_read").default(false).notNull(),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const systemAuditLogs = mysqlTable("system_audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => users.id),
+  roleName: varchar("role_name", { length: 50 }).notNull(),
+  modul: varchar("modul", { length: 50 }).notNull(),
+  aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
+  deskripsi: text("deskripsi"),
+  ipAddress: varchar("ip_address", { length: 45 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
