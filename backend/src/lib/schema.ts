@@ -90,6 +90,15 @@ export const dispositions = mysqlTable("dispositions", {
   deletedAt: timestamp("deleted_at"),
 });
 
+export const dispositionHistories = mysqlTable("disposition_histories", {
+  id: int("id").autoincrement().primaryKey(),
+  dispositionId: int("disposition_id").notNull().references(() => dispositions.id, { onDelete: "cascade" }),
+  userId: int("user_id").notNull().references(() => users.id),
+  aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
+  keterangan: text("keterangan"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Types
 export type Role = typeof roles.$inferSelect;
 export type NewRole = typeof roles.$inferInsert;
