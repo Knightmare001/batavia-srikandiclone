@@ -1,283 +1,226 @@
-# 📋 Issue: Perancangan Skema Database & Modul Surat Keluar (Pencatatan, Upload Dokumen, dan Pengarsipan)
+# 📋 Issue: Perancangan Skema Database & Modul Terpadu: Arsip Global, Dashboard Multi-Role, Manajemen Pengguna, Notifikasi, dan Audit Trail Lengkap
 
 ## 📌 Ringkasan Masalah & Tujuan
-Modul ini bertujuan untuk mengelola alur **Pencatatan dan Pengarsipan Surat Keluar** di lingkungan sekolah. Berbeda dengan Surat Masuk yang memerlukan alur disposisi berjenjang dan tindak lanjut, Surat Keluar berfokus pada:
-1. **Pencatatan Metadata & Upload Dokumen**: Staf Tata Usaha (TU) mencatat surat keluar resmi yang dibuat oleh Kepala Sekolah, Wakasek, atau unit kerja lainnya serta mengunggah file berkas digitalnya (PDF/Word).
-2. **Penomoran Agenda Otomatis**: Sistem membuat nomor agenda unik secara otomatis dengan format `SK-{nomor_urut_3_digit}/{tahun}` (contoh: `SK-001/2026`).
-3. **Pencarian, Filter & Pratinjau Dokumen**: Semua pengguna internal yang terotentikasi dapat mencari arsip surat keluar, melihat detail, dan membaca dokumen secara *inline* di browser tanpa harus mengunduh file secara manual.
-4. **Keamanan & Otorisasi**: Pengelolaan mutasi data (Create/POST, Edit/PUT, Delete/DELETE) dibatasi secara ketat **khusus role Tata Usaha (`tu`) dan Administrator (`admin`)**.
+Inisiatif ini bertujuan untuk melengkapi ekosistem persuratan dan pengarsipan digital sekolah dengan menyatukan seluruh komponen pendukung utama:
+1. **Pusat Arsip & Pencarian Global (`/api/v1/arsip`)**: Satu pintu pencarian cerdas yang menggabungkan arsip surat masuk dan surat keluar, dilengkapi statistik serta filter komprehensif tanpa perlu membuka folder Google Drive.
+2. **Dashboard Dinamis Multi-Role (`/api/v1/dashboard`)**: Menampilkan ringkasan informasi dan metrik penting yang disesuaikan secara otomatis berdasarkan role pengguna yang sedang login (Admin, TU, Kepala Sekolah, Wakasek, Guru/Staf).
+3. **Manajemen Pengguna & Departemen Lengkap (`/api/v1/users` & `/api/v1/departments`)**: Fitur administrasi untuk Admin dalam mengelola akun pengguna (daftar, detail, edit, aktif/nonaktifkan akun via soft-delete/status, ubah password) serta pengelolaan unit kerja/departemen sekolah.
+4. **Modul Notifikasi Internal (`/api/v1/notifications`)**: Sistem pemberitahuan berbasis database untuk memberi tahu pihak terkait ketika ada surat masuk baru, disposisi baru, penerusan tugas, atau laporan penyelesaian tugas.
+5. **Penyempurnaan Audit Trail Terpadu**: Standardisasi pencatatan log aktivitas di seluruh modul yang bersifat *immutable* (hanya bisa ditambah/insert, tidak bisa diedit atau dihapus).
 
 ---
 
 ## 🗄️ Bagian 1: Rancangan Skema Database (Drizzle ORM)
 
-Untuk mengakomodasi penyimpanan data surat keluar dan riwayat audit perubahannya, dirancang 2 tabel baru:
+Untuk mendukung modul-modul di atas, diperlukan penambahan tabel **Notifikasi** dan tabel **Log Audit Global Sistem**, serta pemanfaatan tabel master yang sudah ada:
 
-### 1. Tabel `outgoing_letters` (Surat Keluar)
-Tabel utama penyimpan metadata dan berkas surat keluar:
+### 1. Tabel Baru: `notifications` (Pemberitahuan Pengguna)
+Menyimpan notifikasi yang ditujukan kepada masing-masing pengguna:
 - **`id`**: `int`, primary key, auto increment.
-- **`nomor_agenda`**: `varchar(50)`, not null, unique.
-  - *Format*: Dibuat otomatis oleh sistem dengan pola `SK-XXX/YYYY` (misal: `SK-001/2026`).
-  - *Integritas*: Gunakan database named lock (`GET_LOCK`) untuk menjamin nomor urut tidak mengalami tabrakan/duplikasi (*race condition*).
-- **`nomor_surat`**: `varchar(100)`, not null (nomor registrasi resmi dokumen sekolah, misal: `050/SMK/XI/2026`).
-- **`tanggal_surat`**: `date`, not null (tanggal penerbitan yang tertera pada surat).
-- **`tanggal_dikirim`**: `date`, not null (tanggal surat dikirimkan kepada penerima).
-- **`pembuat_surat`**: `varchar(150)`, not null (pihak yang membuat/mengajukan surat, misal: *Wakasek Kurikulum*, *Kepala Sekolah*).
-- **`tujuan_surat`**: `varchar(255)`, not null (instansi atau pihak penerima surat, misal: *Seluruh Guru*, *Dinas Pendidikan Prov.*).
-- **`perihal`**: `varchar(255)`, not null (pokok pembahasan surat).
-- **`jenis_surat`**: `varchar(100)`, not null (kategori dokumen, misal: *Undangan, Permohonan, Edaran, Keterangan*).
-- **`file_path`**: `varchar(255)`, not null (lokasi penyimpanan dokumen di filesystem server).
-- **`file_name`**: `varchar(255)`, not null (nama file asli yang diunggah).
-- **`keterangan`**: `text`, nullable (informasi atau catatan tambahan).
-- **`status_surat`**: `varchar(50)`, not null, default: `'Tercatat'`.
-- **`created_by`**: `int`, not null, foreign key ke `users.id` (ID akun TU yang menginput data).
-- **`created_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, not null.
-- **`updated_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, on update `CURRENT_TIMESTAMP`, not null.
-- **`deleted_at`**: `timestamp`, nullable (penanda **soft delete** agar data yang dihapus tidak hilang permanen dari database).
-
----
-
-### 2. Tabel `outgoing_letter_histories` (Riwayat Aktivitas Surat Keluar)
-Tabel audit trail pencatatan aktivitas surat keluar:
-- **`id`**: `int`, primary key, auto increment.
-- **`letter_id`**: `int`, not null, foreign key ke `outgoing_letters.id` (on delete cascade).
-- **`user_id`**: `int`, not null, foreign key ke `users.id` (petugas yang melakukan aksi).
-- **`aktivitas`**: `varchar(100)`, not null (contoh: *"Surat keluar dicatat"*, *"Informasi surat keluar diperbarui"*).
-- **`keterangan`**: `varchar(255)`, nullable (catatan perubahan).
+- **`user_id`**: `int`, not null, foreign key ke `users.id` (penerima notifikasi).
+- **`judul`**: `varchar(150)`, not null (misal: *"Disposisi Baru Diterima"*, *"Tugas Diselesaikan"*).
+- **`pesan`**: `text`, not null (isi pesan singkat notifikasi).
+- **`tipe`**: `varchar(50)`, not null (kategori notifikasi: `surat_masuk`, `disposisi`, `tugas_selesai`, `sistem`).
+- **`referensi_id`**: `int`, nullable (ID entitas terkait, misalnya ID surat atau ID disposisi).
+- **`link_url`**: `varchar(255)`, nullable (tautan cepat menuju halaman terkait di antarmuka frontend).
+- **`is_read`**: `boolean` / `tinyint(1)`, not null, default: `false` (penanda status telah dibaca).
+- **`read_at`**: `timestamp`, nullable (waktu pengguna membaca notifikasi).
 - **`created_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, not null.
 
 ---
 
-## 🚀 Bagian 2: Spesifikasi Endpoint API (`/api/v1/surat-keluar`)
-
-Basis path seluruh rute modul ini adalah: `/api/v1/surat-keluar`.
+### 2. Tabel Baru: `system_audit_logs` (Audit Trail Aktivitas Global)
+Mencatat seluruh aksi penting di sistem secara terpusat dan *immutable*:
+- **`id`**: `int`, primary key, auto increment.
+- **`user_id`**: `int`, not null, foreign key ke `users.id` (pelaku aksi).
+- **`role_name`**: `varchar(50)`, not null (role pelaku saat melakukan aksi).
+- **`modul`**: `varchar(50)`, not null (`auth`, `surat_masuk`, `surat_keluar`, `disposisi`, `users`, `departments`).
+- **`aktivitas`**: `varchar(100)`, not null (contoh: *"Mencatat surat masuk"*, *"Membuat disposisi"*, *"Menyelesaikan tugas"*, *"Mengubah password user"*).
+- **`deskripsi`**: `text`, nullable (detail informasi atau ringkasan perubahan).
+- **`ip_address`**: `varchar(45)`, nullable (IP client pengirim request).
+- **`created_at`**: `timestamp`, default `CURRENT_TIMESTAMP`, not null.
 
 ---
 
-### 1. `GET /api/v1/surat-keluar` (Daftar Arsip Surat Keluar)
-Menampilkan daftar seluruh surat keluar aktif (`deleted_at IS NULL`).
-- **Akses**: Semua user terotentikasi (Admin, TU, Kepala Sekolah, Wakasek, Guru/Staf).
+### 3. Penyelarasan Tabel Eksisting
+- **Tabel `users`**:
+  - Kolom `deleted_at` digunakan sebagai penanda status aktif/nonaktif akun (jika `deleted_at IS NOT NULL`, akun dianggap nonaktif dan ditolak saat login).
+- **Tabel `departments`**:
+  - Sudah memiliki struktur: `id`, `name`, `createdAt`.
+- **Tabel `incoming_letters` & `outgoing_letters`**:
+  - Menjadi sumber data terpadu untuk modul Arsip dan metrik Dashboard.
+
+---
+
+## 🚀 Bagian 2: Spesifikasi Fitur & Endpoint API
+
+---
+
+### MODUL 1: Pusat Arsip & Pencarian Global (`/api/v1/arsip`)
+
+Menyediakan pencarian gabungan (*federated search*) antara Surat Masuk dan Surat Keluar dalam satu antarmuka terpusat.
+
+#### 1. `GET /api/v1/arsip`
+Mengambil daftar gabungan arsip surat masuk dan surat keluar.
+- **Akses**: Semua user terotentikasi.
 - **Query Parameter**:
-  - `search`: Pencarian teks pada perihal, tujuan surat, pembuat surat, atau nomor surat.
-  - `tahun`: Filter berdasarkan tahun surat (contoh: `2026`).
-  - `jenis`: Filter jenis surat (contoh: `Undangan`, `Edaran`).
-  - `page` & `limit`: Pagination data (default: `page=1`, `limit=10`).
+  - `search`: Pencarian teks bebas (pada nomor surat, perihal, pengirim, atau tujuan).
+  - `jenis`: Filter jenis arsip (`surat_masuk` atau `surat_keluar`). Jika kosong, tampilkan keduanya.
+  - `tahun`: Filter tahun (contoh: `2026`).
+  - `bulan`: Filter bulan (1-12).
+  - `status`: Filter status dokumen (misal: `Selesai`, `Tercatat`, `Didisposisikan`).
+  - `page` & `limit`: Pagination.
 - **Response Format (`200 OK`)**:
   ```json
   {
     "success": true,
     "data": [
       {
-        "id_surat_keluar": 1,
+        "id": 1,
+        "jenis_arsip": "surat_masuk",
+        "nomor_agenda": "SM-001/2026",
+        "nomor_surat": "001/SARPRAS/XI/2026",
+        "perihal": "Laporan Kerusakan Fasilitas",
+        "pihak_terkait": "Wakasek Sarpras",
+        "tanggal": "2026-11-10",
+        "status": "Selesai"
+      },
+      {
+        "id": 1,
+        "jenis_arsip": "surat_keluar",
         "nomor_agenda": "SK-001/2026",
         "nomor_surat": "050/SMK/XI/2026",
-        "tanggal_surat": "2026-11-18",
-        "pembuat_surat": "Wakasek Kurikulum",
-        "tujuan_surat": "Seluruh Guru",
         "perihal": "Undangan Rapat Evaluasi",
-        "status_surat": "Tercatat"
+        "pihak_terkait": "Seluruh Guru",
+        "tanggal": "2026-11-18",
+        "status": "Tercatat"
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 10,
-      "total": 1,
-      "total_pages": 1
-    }
+    "pagination": { "page": 1, "limit": 10, "total": 2, "total_pages": 1 }
   }
   ```
 
+#### 2. `GET /api/v1/arsip/:jenis/:id`
+Melihat detail lengkap arsip berdasarkan jenis (`surat_masuk` atau `surat_keluar`) dan ID.
+
+#### 3. `GET /api/v1/arsip/statistik`
+Ringkasan statistik arsip untuk grafik dan pemantauan cepat:
+- Total surat masuk tahun berjalan.
+- Total surat keluar tahun berjalan.
+- Surat masuk berdasarkan status (`Draft`, `Menunggu Kepala Sekolah`, `Didisposisikan`, `Selesai`).
+- Rekapitulasi per bulan.
+
 ---
 
-### 2. `GET /api/v1/surat-keluar/:id` (Detail Surat Keluar)
-Melihat rincian metadata lengkap dari satu surat keluar.
+### MODUL 2: Dashboard Dinamis Multi-Role (`GET /api/v1/dashboard`)
+
+Mengembalikan data statistik dan ringkasan tugas yang dipersonalisasi sesuai role pengguna yang login (berdasarkan token JWT).
 - **Akses**: Semua user terotentikasi.
-- **Response Format (`200 OK`)**:
+- **Logika Output Berdasarkan Role**:
+  - **Admin**:
+    - Total pengguna aktif, total departemen, rincian user per role, dan log audit sistem terbaru.
+  - **Tata Usaha (TU)**:
+    - Total surat masuk, total surat keluar, surat masuk yang belum diteruskan (Draft), dan surat yang masih menunggu Kepala Sekolah.
+  - **Kepala Sekolah**:
+    - Jumlah surat yang menunggu disposisi, progres disposisi berjalan, dan daftar surat masuk prioritas tinggi (Segera/Penting).
+  - **Wakasek / Kepala Unit**:
+    - Disposisi yang diterima unit kerjanya, tugas yang sedang diteruskan ke guru, dan laporan guru yang menunggu verifikasi.
+  - **Guru / Staf**:
+    - Total tugas aktif (Belum Diproses, Diproses), total tugas selesai, dan tugas dengan batas waktu terdekat.
+- **Contoh Response (`200 OK`)**:
   ```json
   {
     "success": true,
+    "role": "tu",
     "data": {
-      "id_surat_keluar": 1,
-      "nomor_agenda": "SK-001/2026",
-      "nomor_surat": "050/SMK/XI/2026",
-      "tanggal_surat": "2026-11-18",
-      "tanggal_dikirim": "2026-11-18",
-      "pembuat_surat": "Wakasek Kurikulum",
-      "tujuan_surat": "Seluruh Guru",
-      "perihal": "Undangan Rapat Evaluasi",
-      "jenis_surat": "Undangan",
-      "file_name": "undangan_rapat.pdf",
-      "keterangan": "Rapat evaluasi semester ganjil",
-      "status_surat": "Tercatat"
+      "total_surat_masuk": 42,
+      "total_surat_keluar": 18,
+      "surat_menunggu_disposisi": 3,
+      "surat_terbaru": [ ... ]
     }
   }
   ```
 
 ---
 
-### 3. `POST /api/v1/surat-keluar` (Tambah Surat Keluar Baru)
-Mencatat surat keluar baru dan mengunggah dokumen fisik (PDF/Word).
-- **Akses**: **Khusus Role `tu` dan `admin`**.
-- **Content-Type**: `multipart/form-data`
-- **Form Data Fields**:
-  - `nomor_surat`: Wajib (`varchar`).
-  - `tanggal_surat`: Wajib (`YYYY-MM-DD`).
-  - `tanggal_dikirim`: Wajib (`YYYY-MM-DD`).
-  - `pembuat_surat`: Wajib (`varchar`).
-  - `tujuan_surat`: Wajib (`varchar`).
-  - `perihal`: Wajib (`varchar`).
-  - `jenis_surat`: Wajib (`varchar`).
-  - `keterangan`: Opsional (`text`).
-  - `file_surat`: Wajib (file berkas berformat PDF atau Word).
-- **Alur Kerja Backend**:
-  1. Validasi form input dan ekstensi/MIME type file dokumen.
-  2. Kunci nomor urut via `GET_LOCK` untuk generate `nomor_agenda` format `SK-XXX/YYYY`.
-  3. Simpan file berkas ke storage aman (misal `backend/data/uploads/outgoing/`).
-  4. Simpan metadata ke tabel `outgoing_letters`.
-  5. Catat riwayat ke tabel `outgoing_letter_histories` dengan aktivitas: *"Surat keluar dicatat"*.
-  6. Lepas kunci named lock.
-- **Response Format (`201 Created`)**:
-  ```json
-  {
-    "success": true,
-    "message": "Surat keluar berhasil dicatat",
-    "data": {
-      "id_surat_keluar": 1,
-      "nomor_agenda": "SK-001/2026",
-      "nomor_surat": "050/SMK/XI/2026",
-      "perihal": "Undangan Rapat Evaluasi",
-      "pembuat_surat": "Wakasek Kurikulum",
-      "tujuan_surat": "Seluruh Guru",
-      "status_surat": "Tercatat"
-    }
-  }
-  ```
+### MODUL 3: Manajemen Pengguna & Departemen (Admin)
+
+#### Pengelolaan Akun Pengguna (`/api/v1/users`)
+- `GET /api/v1/users`: Menampilkan daftar semua pengguna beserta info role dan departemen (dukungan search & pagination).
+- `GET /api/v1/users/:id`: Detail profil pengguna tertentu.
+- `PUT /api/v1/users/:id`: Memperbarui informasi profil pengguna (nama, email, NIP, role, departemen, jabatan).
+- `PATCH /api/v1/users/:id/status`: Mengaktifkan atau menonaktifkan akun (`deleted_at` set NULL atau timestamp).
+- `PATCH /api/v1/users/:id/password`: Mengubah password akun pengguna oleh Admin (menggunakan hash bcrypt baru).
+
+#### Pengelolaan Departemen / Unit Kerja (`/api/v1/departments`)
+- `GET /api/v1/departments`: Menampilkan seluruh daftar departemen sekolah.
+- `POST /api/v1/departments`: Menambahkan unit kerja baru (nama unit harus unik).
+- `PUT /api/v1/departments/:id`: Memperbarui nama departemen.
+- **Akses**: Khusus Role **Admin**.
 
 ---
 
-### 4. `PUT /api/v1/surat-keluar/:id` (Ubah Data Surat Keluar)
-Memperbaiki metadata surat atau mengganti berkas dokumen surat jika ada revisi.
-- **Akses**: **Khusus Role `tu` dan `admin`**.
-- **Content-Type**: `multipart/form-data`
-- **Alur Kerja Backend**:
-  1. Validasi keberadaan surat aktif (`deleted_at IS NULL`).
-  2. Update metadata yang dikirimkan.
-  3. Jika ada upload `file_surat` baru, simpan file baru dan hapus file lama dari storage.
-  4. Catat riwayat audit: *"Informasi surat keluar diperbarui oleh [User]"*.
-- **Response Format (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "message": "Data surat keluar berhasil diperbarui",
-    "data": {
-      "id_surat_keluar": 1,
-      "nomor_agenda": "SK-001/2026"
-    }
-  }
-  ```
+### MODUL 4: Sistem Notifikasi Internal (`/api/v1/notifications`)
+
+Pemberitahuan otomatis saat terjadi peristiwa penting dalam alur kerja:
+- **Pemicu Otomatis (Event Triggers)**:
+  1. TU meneruskan surat masuk $\rightarrow$ Notifikasi ke Kepala Sekolah.
+  2. Kepala Sekolah membuat disposisi $\rightarrow$ Notifikasi ke Wakasek/Unit kerja tujuan.
+  3. Wakasek meneruskan tugas $\rightarrow$ Notifikasi ke Guru/Staf pelaksana.
+  4. Guru menyelesaikan tugas $\rightarrow$ Notifikasi ke Wakasek pemberi tugas.
+  5. Seluruh disposisi tuntas $\rightarrow$ Notifikasi ke Kepala Sekolah dan TU.
+- **Endpoints**:
+  - `GET /api/v1/notifications`: Menampilkan notifikasi milik pengguna yang sedang login (dengan info jumlah belum dibaca).
+  - `PATCH /api/v1/notifications/:id/read`: Menandai satu notifikasi telah dibaca.
+  - `PATCH /api/v1/notifications/read-all`: Menandai seluruh notifikasi milik pengguna telah dibaca.
 
 ---
 
-### 5. `DELETE /api/v1/surat-keluar/:id` (Hapus Surat Keluar - Soft Delete)
-Menonaktifkan data surat keluar secara aman tanpa menghapus fisik file secara permanen.
-- **Akses**: **Khusus Role `tu` dan `admin`**.
-- **Alur Kerja Backend**:
-  1. Isi kolom `deleted_at = NOW()`.
-  2. Catat riwayat audit: *"Surat keluar dihapus (soft delete) oleh [User]"*.
-- **Response Format (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "message": "Surat keluar berhasil dihapus"
-  }
-  ```
+### MODUL 5: Penguatan Audit Trail Terpadu
 
----
-
-### 6. `GET /api/v1/surat-keluar/:id/dokumen` (Pratinjau Dokumen)
-Menampilkan berkas PDF langsung di tab browser tanpa memaksa pengunduhan.
-- **Akses**: Semua user terotentikasi.
-- **Response**: Stream file dokumen dengan header:
-  - `Content-Type: application/pdf` (atau format word yang sesuai).
-  - `Content-Disposition: inline; filename="[nama_file]"`
-
----
-
-### 7. `GET /api/v1/surat-keluar/:id/riwayat` (Riwayat Surat Keluar)
-Melihat jejak waktu pencatatan, pembaruan, dan user pelaksana yang memproses surat keluar.
-- **Akses**: Semua user terotentikasi.
-- **Response Format (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "data": [
-      {
-        "aktivitas": "Surat keluar dicatat",
-        "pengguna": "Staf TU",
-        "keterangan": "Pencatatan awal surat keluar",
-        "tanggal": "2026-11-18 10:00:00"
-      }
-    ]
-  }
-  ```
-
----
-
-## 🔒 Bagian 3: Matriks Hak Akses (Role Permissions)
-
-| Endpoint & Operasi | Admin | TU | Kepala Sekolah | Wakasek | Guru / Staf |
-|---|:---:|:---:|:---:|:---:|:---:|
-| `GET /api/v1/surat-keluar` (List Arsip) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `GET /api/v1/surat-keluar/:id` (Detail) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `GET /api/v1/surat-keluar/:id/dokumen` (Preview) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `GET /api/v1/surat-keluar/:id/riwayat` (Audit Log) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `POST /api/v1/surat-keluar` (Tambah Data) | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `PUT /api/v1/surat-keluar/:id` (Edit Data) | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `DELETE /api/v1/surat-keluar/:id` (Soft Delete) | ✅ | ✅ | ❌ | ❌ | ❌ |
+- Setiap operasi penting di backend otomatis mencatat riwayat ke tabel `system_audit_logs`.
+- Data audit trail bersifat **Append-Only** (hanya `INSERT`, tidak ada endpoint `PUT` atau `DELETE` untuk data log).
+- Format log menyimpan waktu presisi, identitas pelaku (`userId` & `role`), modul yang diakses, dan rincian aktivitas.
 
 ---
 
 ## 📝 Panduan Implementasi Bertahap (High-Level untuk Junior Programmer)
 
-1. **Fase 1: Update Skema Database & Migrasi**
-   - Tambahkan tabel `outgoing_letters` dan `outgoing_letter_histories` pada [`backend/src/lib/schema.ts`](file:///home/egi/belajar_kode/Belajar_vibecoding/backend/src/lib/schema.ts).
+1. **Fase 1: Skema Database & Migrasi**
+   - Definisikan tabel `notifications` dan `system_audit_logs` di [`backend/src/lib/schema.ts`](file:///home/egi/belajar_kode/Belajar_vibecoding/backend/src/lib/schema.ts).
    - Jalankan migrasi: `npm run db:generate` dan `npm run db:push`.
 
-2. **Fase 2: Utility Generator Nomor Agenda Surat Keluar**
-   - Buat fungsi penomoran otomatis dengan format `SK-{nomor_urut_3_digit}/{tahun}`.
-   - Wajib menggunakan database named lock (`GET_LOCK`) untuk menjamin nomor urut berurutan dan bebas dari race condition.
+2. **Fase 2: Layanan Notifikasi Terpadu (`notificationService.ts`)**
+   - Buat fungsi utilitas `sendNotification(userId, title, message, type, refId, linkUrl)` yang dapat dipanggil dari service surat masuk, disposisi, dan pengguna.
 
-3. **Fase 3: Pembuatan Modul Domain `outgoingLetters/`**
-   - Buat struktur direktori di `backend/src/services/outgoingLetters/`:
-     - `controller/outgoingLetterController.ts`
-     - `outgoingLetterService.ts`
-     - `outgoingLetterRepository.ts`
-     - `validator/schema.ts` (Validasi kelengkapan body, format tanggal, dan tipe file upload)
-     - `fileStorage.ts` (Penyimpanan dan penghapusan file dokumen surat keluar)
-     - `routes/index.ts`
+3. **Fase 3: Layanan Audit Log Helper (`auditLogger.ts`)**
+   - Buat helper fungsi untuk mencatat aktivitas penting secara asynchronous tanpa menghambat respon utama HTTP.
 
-4. **Fase 4: Penerapan Middleware Hak Akses**
-   - Pasang middleware `authenticate` pada seluruh endpoint.
-   - Pasang middleware `authorizeRoles("tu", "admin")` pada rute mutasi (`POST`, `PUT`, `DELETE`).
+4. **Fase 4: Modul Manajemen Pengguna & Departemen**
+   - Lengkapi handler endpoint CRUD user dan department di bawah otorisasi ketat role Admin (`authorizeRoles("admin")`).
 
-5. **Fase 5: Pendaftaran Rute Central Router**
-   - Daftarkan `outgoingLetterRouter` pada [`backend/src/routes/index.ts`](file:///home/egi/belajar_kode/Belajar_vibecoding/backend/src/routes/index.ts) dengan path `/api/v1/surat-keluar`.
+5. **Fase 5: Modul Pusat Arsip Global (`archiveService.ts`)**
+   - Gabungkan query surat masuk dan surat keluar menggunakan `UNION` atau mapping Drizzle ORM dengan dukungan filter tahun, bulan, jenis, dan kata kunci pencarian.
 
-6. **Fase 6: Automated Testing**
-   - Buat file pengujian di `backend/tests/outgoingLetter.test.ts` untuk menguji:
-     - Validasi form input dan validasi berkas PDF/Word.
-     - Penolakan akses role Guru/Wakasek pada endpoint mutasi (`POST`, `PUT`, `DELETE` harus `403 Forbidden`).
-     - Alur CRUD, soft delete, dan pembuatan nomor agenda otomatis.
-     - Dukungan parameter pencarian, filter tahun/jenis, dan pagination.
+6. **Fase 6: Modul Dashboard Dinamis (`dashboardService.ts`)**
+   - Buat logika percabangan berdasarkan `req.authUser.role` untuk mengambil agregasi data statistik spesifik tiap peran pengguna.
+
+7. **Fase 7: Automated Testing**
+   - Tulis unit & integration test untuk memvalidasi:
+     - Filter pencarian arsip gabungan.
+     - Respons metrik dashboard untuk masing-masing role.
+     - Operasi manajemen user (status aktif/nonaktif, edit password).
+     - Alur pembuatan notifikasi dan penandaan status baca.
 
 ---
 
 ## 🎯 Acceptance Criteria
-- [ ] Tabel `outgoing_letters` dan `outgoing_letter_histories` terdaftar di Drizzle ORM dan tersinkronisasi di database MariaDB.
-- [ ] Nomor agenda dibuat otomatis dengan pola `SK-XXX/YYYY` menggunakan named lock untuk mencegah duplikasi.
-- [ ] Endpoint `POST /api/v1/surat-keluar` hanya dapat diakses oleh role `tu` dan `admin`.
-- [ ] Berkas surat keluar mendukung format PDF dan Word serta dapat ditampilkan secara *inline* via endpoint `/dokumen`.
-- [ ] Fitur soft delete berjalan aman dengan mengisi kolom `deleted_at`.
-- [ ] Endpoint daftar surat keluar mendukung `search`, filter `tahun`, filter `jenis`, serta `pagination`.
-- [ ] Seluruh aktivitas penambahan dan perubahan data tercatat pada tabel riwayat audit.
-- [ ] Seluruh unit test modul surat keluar lulus pengujian 100%.
+- [ ] Tabel `notifications` dan `system_audit_logs` tersinkronisasi di database MariaDB.
+- [ ] Endpoint `GET /api/v1/arsip` dapat mencari dan menampilkan gabungan data surat masuk dan surat keluar secara akurat.
+- [ ] Endpoint `GET /api/v1/dashboard` mengembalikan statistik yang sesuai dengan role pengguna yang sedang login.
+- [ ] Admin dapat melihat, mengubah informasi, menonaktifkan akun, dan me-reset password pengguna lain.
+- [ ] Admin dapat menambah dan mengedit data departemen/unit kerja.
+- [ ] Pengguna menerima notifikasi otomatis saat ada disposisi atau tugas baru yang ditujukan kepadanya.
+- [ ] Pengguna dapat menandai notifikasi telah dibaca (`/read` dan `/read-all`).
+- [ ] Seluruh aktivitas penting tercatat pada log audit sistem dan tidak dapat dimanipulasi oleh pengguna biasa.
+- [ ] Seluruh unit test lulus pengujian 100%.

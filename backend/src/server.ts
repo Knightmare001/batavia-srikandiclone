@@ -3,6 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 import routes from "./routes";
 import { errorMiddleware } from "./middleware/errorMiddleware";
+import { auditMiddleware } from "./middleware/auditMiddleware";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,6 +11,7 @@ const port = process.env.PORT || 3000;
 // Global Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(auditMiddleware);
 
 // Routes
 app.use(routes);

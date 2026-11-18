@@ -1,5 +1,9 @@
 import { ClientError, NotFoundError } from "../../exceptions/clientError";
 import { poolConnection } from "../../lib/db";
+import { db } from "../../lib/db";
+import { roles, users } from "../../lib/schema";
+import { and, eq, isNull } from "drizzle-orm";
+import { sendNotification } from "../notifications/notificationService";
 import {
   getIncomingLetterDocumentMime,
   readIncomingLetterDocument,
@@ -110,6 +114,8 @@ export class IncomingLetterService {
   async forward(id: number, userId: number) {
     const status = await this.repository.forwardToPrincipal(id, userId);
     if (!status) throw new NotFoundError("Incoming letter not found");
+    const principals = await db.select({ id: users.id }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(and(eq(roles.name, "kepala_sekolah"), isNull(users.deletedAt)));
+    await Promise.all(principals.map((principal) => sendNotification({ userId: principal.id, title: "Surat Masuk Menunggu Disposisi", message: `Surat masuk #${id} diteruskan untuk ditinjau.`, type: "surat_masuk", refId: id, linkUrl: `/surat-masuk/${id}` }).catch((error) => console.error("Notification write failed", error))));
     return status;
   }
 

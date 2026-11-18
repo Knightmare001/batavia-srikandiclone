@@ -3,6 +3,7 @@ import { ClientError, NotFoundError } from "../../exceptions/clientError";
 import { db, poolConnection } from "../../lib/db";
 import { departments, dispositionHistories, dispositions, incomingLetterHistories, incomingLetters, roles, users } from "../../lib/schema";
 import { getIncomingLetterDocumentMime, readIncomingLetterDocument } from "../incomingLetters/fileStorage";
+import { sendNotification } from "../notifications/notificationService";
 import type { InitialDispositionPayload } from "./validator/schema";
 
 type PageFilter = { page: number; limit: number; status?: string; prioritas?: string; tab?: "active" | "history" };
@@ -53,7 +54,7 @@ export class DispositionService {
       : payload.target_type === "user" ? (await db.select({ name: users.name }).from(users).where(and(eq(users.id, payload.to_user_id!), isNull(users.deletedAt))))[0]?.name : "seluruh pengguna";
     if (!recipient) throw new ClientError("Disposition target not found");
     const year = new Date().getFullYear();
-    return createNumberLock(year, async () => db.transaction(async (tx) => {
+    const created = await createNumberLock(year, async () => db.transaction(async (tx) => {
       const [maxRow] = await tx.select({ max: sql<number>`MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(${dispositions.nomorDisposisi}, '/', 1), '-', -1) AS UNSIGNED))` }).from(dispositions).where(like(dispositions.nomorDisposisi, `DSP-%/${year}`));
       const nomor = `DSP-${String(Number(maxRow?.max ?? 0) + 1).padStart(3, "0")}/${year}`;
       const [inserted] = await tx.insert(dispositions).values({ letterId: letter.id, fromUserId: actorId, targetType: payload.target_type, toDepartmentId: payload.to_department_id ?? null, toUserId: payload.to_user_id ?? null, instruksi: payload.instruksi, catatanTambahan: payload.catatan_tambahan ?? null, prioritas: payload.prioritas, batasWaktu: payload.batas_waktu, nomorDisposisi: nomor });
@@ -63,6 +64,9 @@ export class DispositionService {
       await tx.insert(incomingLetterHistories).values({ letterId: letter.id, userId: actorId, aktivitas: "Disposisi dibuat", keterangan: `Surat didisposisikan kepada ${recipient}` });
       return { id: Number(inserted.insertId), nomor_disposisi: nomor, tanggal_disposisi: new Date().toISOString() };
     }));
+    const recipients = payload.target_type === "user" && payload.to_user_id ? [payload.to_user_id] : payload.target_type === "department" && payload.to_department_id ? (await db.select({ id: users.id }).from(users).where(and(eq(users.departmentId, payload.to_department_id), isNull(users.deletedAt)))).map((u) => u.id) : [];
+    await Promise.all(recipients.map((userId) => sendNotification({ userId, title: "Disposisi Baru", message: `Anda menerima disposisi ${created.nomor_disposisi}.`, type: "disposisi", refId: created.id, linkUrl: `/disposisi/${created.id}` }).catch((error) => console.error("Notification write failed", error))));
+    return created;
   }
 
   private async findDisposition(id: number) {
@@ -86,7 +90,7 @@ export class DispositionService {
     if (!recipient) throw new ClientError("to_user_id was not found");
     if (parent.targetType === "department" && recipient.departmentId !== parent.toDepartmentId) throw new ClientError("Recipient must belong to the parent disposition department");
     const year = new Date().getFullYear();
-    return createNumberLock(year, async () => db.transaction(async (tx) => {
+    const forwarded = await createNumberLock(year, async () => db.transaction(async (tx) => {
       const [maxRow] = await tx.select({ max: sql<number>`MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(${dispositions.nomorDisposisi}, '/', 1), '-', -1) AS UNSIGNED))` }).from(dispositions).where(like(dispositions.nomorDisposisi, `DSP-%/${year}`));
       const nomor = `DSP-${String(Number(maxRow?.max ?? 0) + 1).padStart(3, "0")}/${year}`;
       const [inserted] = await tx.insert(dispositions).values({ letterId: parent.letterId, parentDispositionId: id, nomorDisposisi: nomor, fromUserId: actorId, targetType: "user", toUserId: payload.to_user_id, instruksi: payload.instruksi, catatanTambahan: payload.catatan_tambahan ?? null, batasWaktu: payload.batas_waktu });
@@ -95,6 +99,8 @@ export class DispositionService {
       await tx.insert(incomingLetterHistories).values({ letterId: parent.letterId, userId: actorId, aktivitas: "Disposisi diteruskan", keterangan: `Tugas disposisi diteruskan oleh ${actor?.name ?? "pengguna"} kepada ${recipient.name}` });
       return { id: Number(inserted.insertId), nomor_disposisi: nomor };
     }));
+    await sendNotification({ userId: payload.to_user_id, title: "Tugas Disposisi Baru", message: `Anda menerima tugas ${forwarded.nomor_disposisi}.`, type: "disposisi", refId: forwarded.id, linkUrl: `/disposisi/${forwarded.id}` }).catch((error) => console.error("Notification write failed", error));
+    return forwarded;
   }
 
   async updateFollowUp(id: number, actorId: number, role: string, payload: { status: "Belum Diproses" | "Diproses" | "Selesai"; catatan_tindak_lanjut?: string | null }) {
@@ -115,6 +121,14 @@ export class DispositionService {
         }
       }
     });
+    if (payload.status === "Selesai") {
+      if (current.parentDispositionId !== null) {
+        await sendNotification({ userId: current.fromUserId, title: "Laporan Tugas Selesai", message: `Tugas ${current.nomorDisposisi} telah diselesaikan dan menunggu verifikasi.`, type: "tugas_selesai", refId: id, linkUrl: `/disposisi/${current.parentDispositionId}` }).catch((error) => console.error("Notification write failed", error));
+      } else {
+        const managers = await db.select({ id: users.id }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(and(inArray(roles.name, ["kepala_sekolah", "tu"]), isNull(users.deletedAt)));
+        await Promise.all(managers.map((manager) => sendNotification({ userId: manager.id, title: "Seluruh Disposisi Selesai", message: `Seluruh disposisi untuk surat #${current.letterId} telah selesai.`, type: "surat_masuk", refId: current.letterId, linkUrl: `/surat-masuk/${current.letterId}` }).catch((error) => console.error("Notification write failed", error))));
+      }
+    }
     return { id_disposisi: id, status: payload.status, catatan: payload.catatan_tindak_lanjut ?? current.catatanTindakLanjut, tanggal_selesai: payload.status === "Selesai" ? new Date().toISOString() : null };
   }
 
