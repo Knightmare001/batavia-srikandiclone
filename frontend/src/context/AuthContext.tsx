@@ -1,7 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../services/api";
 import type { SessionUser } from "../types";
-type AuthValue = { user: SessionUser | null; token: string | null; login: (nip: string, password: string) => Promise<void>; logout: () => void; };
+type AuthValue = { user: SessionUser | null; token: string | null; login: (nip: string, password: string) => Promise<void>; updateProfile: (name: string, email: string) => Promise<void>; logout: () => void; };
 export const AuthContext = createContext<AuthValue | null>(null);
 function roleFromToken(token: string) {
   try { const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { role?: string; sub?: string }; return payload; } catch { return {}; }
@@ -19,6 +19,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("ear:token", profile.access_token); localStorage.setItem("ear:user", JSON.stringify(nextUser));
     setToken(profile.access_token); setUser(nextUser);
   }, []);
-  const value = useMemo(() => ({ user, token, login, logout }), [user, token, login, logout]);
+  const updateProfile = useCallback(async (name: string, email: string) => {
+    const result = await api<{ data: { name: string; email: string } }>("/users/me", { method: "PATCH", body: JSON.stringify({ name, email }) });
+    setUser((current) => { if (!current) return current; const next = { ...current, name: result.data.name, email: result.data.email }; localStorage.setItem("ear:user", JSON.stringify(next)); return next; });
+  }, []);
+  const value = useMemo(() => ({ user, token, login, updateProfile, logout }), [user, token, login, updateProfile, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

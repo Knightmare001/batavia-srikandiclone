@@ -12,6 +12,10 @@ function id(value: unknown) {
 function query(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
 
 export class DispositionController {
+  monitor = async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await dispositionService.monitor() }); }
+    catch (error) { return next(error); }
+  };
   inbox = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const page = Number(query(req.query.page) || "1");

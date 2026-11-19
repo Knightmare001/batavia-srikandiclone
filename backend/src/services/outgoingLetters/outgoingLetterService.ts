@@ -35,7 +35,7 @@ export class OutgoingLetterService {
   async list(filters: { search?: string; tahun?: number; jenis?: string; page: number; limit: number }) {
     const result = await this.repository.list({ ...filters, offset: (filters.page - 1) * filters.limit });
     return {
-      data: result.data.map((letter) => ({ id_surat_keluar: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, tanggal_surat: letter.tanggalSurat, pembuat_surat: letter.pembuatSurat, tujuan_surat: letter.tujuanSurat, perihal: letter.perihal, status_surat: letter.statusSurat })),
+      data: result.data.map((letter) => ({ id: letter.id, id_surat_keluar: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, tanggal_surat: letter.tanggalSurat, pembuat_surat: letter.pembuatSurat, tujuan_surat: letter.tujuanSurat, perihal: letter.perihal, status_surat: letter.statusSurat })),
       pagination: { page: filters.page, limit: filters.limit, total: result.total, total_pages: Math.ceil(result.total / filters.limit) },
     };
   }
@@ -43,7 +43,7 @@ export class OutgoingLetterService {
   async detail(id: number) {
     const letter = await this.repository.findActive(id);
     if (!letter) throw new NotFoundError("Outgoing letter not found");
-    return { id_surat_keluar: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, tanggal_surat: letter.tanggalSurat, tanggal_dikirim: letter.tanggalDikirim, pembuat_surat: letter.pembuatSurat, tujuan_surat: letter.tujuanSurat, perihal: letter.perihal, jenis_surat: letter.jenisSurat, file_name: letter.fileName, keterangan: letter.keterangan, status_surat: letter.statusSurat };
+    return { id: letter.id, id_surat_keluar: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, tanggal_surat: letter.tanggalSurat, tanggal_dikirim: letter.tanggalDikirim, pembuat_surat: letter.pembuatSurat, tujuan_surat: letter.tujuanSurat, perihal: letter.perihal, jenis_surat: letter.jenisSurat, file_name: letter.fileName, keterangan: letter.keterangan, status_surat: letter.statusSurat };
   }
 
   async update(id: number, payload: Partial<OutgoingLetterPayload>, file: Express.Multer.File | undefined, userId: number) {

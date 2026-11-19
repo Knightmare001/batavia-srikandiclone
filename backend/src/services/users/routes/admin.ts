@@ -9,6 +9,22 @@ import type { AuthenticatedRequest } from "../../../lib/jwt";
 import type { NextFunction, Response } from "express";
 
 const router = Router();
+router.get("/me", authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try { const [user] = await db.select({ id: users.id, name: users.name, email: users.email, nip: users.nip }).from(users).where(eq(users.id, req.authUser!.id)); if (!user) throw new NotFoundError("User not found"); return res.json({ success: true, data: user }); }
+  catch (error) { return next(error); }
+});
+router.patch("/me", authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { name, email } = req.body ?? {};
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 150) throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ClientError("Email tidak valid");
+    const normalizedEmail = email.trim().toLowerCase();
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail));
+    if (existing && existing.id !== req.authUser!.id) throw new ClientError("Email sudah digunakan");
+    await db.update(users).set({ name: name.trim(), email: normalizedEmail }).where(eq(users.id, req.authUser!.id));
+    return res.json({ success: true, data: { id: req.authUser!.id, name: name.trim(), email: normalizedEmail } });
+  } catch (error) { return next(error); }
+});
 router.use(authenticate, authorizeRoles("admin"));
 function id(value: unknown) { const n = typeof value === "string" ? Number(value) : NaN; if (!Number.isSafeInteger(n) || n <= 0) throw new ClientError("id must be a positive integer"); return n; }
 router.get("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

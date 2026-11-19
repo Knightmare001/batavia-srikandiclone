@@ -1,6 +1,6 @@
 import { and, count, eq, gte, inArray, isNotNull, isNull, lt, or, desc } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { departments, dispositions, incomingLetters, outgoingLetters, roles, systemAuditLogs, users } from "../../lib/schema";
+import { departments, dispositionAssignments, dispositions, incomingLetters, outgoingLetters, roles, systemAuditLogs, users } from "../../lib/schema";
 
 async function total(table: any, where?: any) { const [row] = await db.select({ total: count() }).from(table).where(where); return Number(row?.total ?? 0); }
 export class DashboardService {
@@ -23,14 +23,16 @@ export class DashboardService {
       const priority = await db.select({ id: incomingLetters.id, nomor_agenda: incomingLetters.nomorAgenda, perihal: incomingLetters.perihal, prioritas: dispositions.prioritas, status: incomingLetters.status }).from(incomingLetters).innerJoin(dispositions, eq(dispositions.letterId, incomingLetters.id)).where(and(isNull(incomingLetters.deletedAt), isNull(dispositions.deletedAt), inArray(dispositions.prioritas, ["Penting", "Segera"]), inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"])));
       return { surat_menunggu_disposisi: await total(incomingLetters, and(isNull(incomingLetters.deletedAt), eq(incomingLetters.status, "Menunggu Kepala Sekolah"))), disposisi_berjalan: await total(dispositions, and(isNull(dispositions.deletedAt), inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]))), surat_prioritas_tinggi: priority };
     }
-    const [user] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, userId));
     if (role === "pegawai") {
-      const recipient = or(eq(dispositions.toUserId, userId), ...(user?.departmentId ? [eq(dispositions.toDepartmentId, user.departmentId)] : []))!;
-      const activeTask = and(isNull(dispositions.deletedAt), recipient, inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]));
-      const completedTask = and(isNull(dispositions.deletedAt), recipient, eq(dispositions.statusTindakLanjut, "Selesai"));
+      const [assignedOpen, assignedComplete] = await Promise.all([
+        db.select({ total: count() }).from(dispositionAssignments).innerJoin(dispositions, eq(dispositionAssignments.dispositionId, dispositions.id)).where(and(eq(dispositionAssignments.userId, userId), isNull(dispositions.deletedAt), inArray(dispositionAssignments.statusTindakLanjut, ["Belum Diproses", "Diproses"]))),
+        db.select({ total: count() }).from(dispositionAssignments).innerJoin(dispositions, eq(dispositionAssignments.dispositionId, dispositions.id)).where(and(eq(dispositionAssignments.userId, userId), isNull(dispositions.deletedAt), eq(dispositionAssignments.statusTindakLanjut, "Selesai"))),
+      ]);
+      const directOpen = await total(dispositions, and(isNull(dispositions.deletedAt), eq(dispositions.toUserId, userId), inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"])));
+      const directComplete = await total(dispositions, and(isNull(dispositions.deletedAt), eq(dispositions.toUserId, userId), eq(dispositions.statusTindakLanjut, "Selesai")));
       return {
-        tugas_aktif: await total(dispositions, activeTask),
-        tugas_selesai: await total(dispositions, completedTask),
+        tugas_aktif: Number(assignedOpen[0]?.total ?? 0) + directOpen,
+        tugas_selesai: Number(assignedComplete[0]?.total ?? 0) + directComplete,
         tugas_diteruskan: await total(dispositions, and(isNull(dispositions.deletedAt), eq(dispositions.fromUserId, userId), isNotNull(dispositions.parentDispositionId))),
       };
     }

@@ -57,6 +57,13 @@
       "when": 1795102331446,
       "tag": "0007_simplify_roles_and_unit_work",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1795107716949,
+      "tag": "0008_add_disposition_assignments",
+      "breakpoints": true
     }
   ]
 }

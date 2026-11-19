@@ -1,4 +1,5 @@
 import { and, asc, count, eq, gte, isNull, like, lt, or, sql } from "drizzle-orm";
+import { ClientError } from "../../exceptions/clientError";
 import { db } from "../../lib/db";
 import { incomingLetterHistories, incomingLetters, users } from "../../lib/schema";
 import type { IncomingLetterPayload } from "./validator/schema";
@@ -124,6 +125,7 @@ export class IncomingLetterRepository {
         .from(incomingLetters)
         .where(and(eq(incomingLetters.id, id), isNull(incomingLetters.deletedAt)));
       if (!current) return false;
+      if (!["Draft", "Tercatat"].includes(current.status)) throw new ClientError("Surat yang sudah diteruskan atau diproses tidak dapat dihapus");
       await tx.update(incomingLetters).set({ deletedAt: new Date() }).where(eq(incomingLetters.id, id));
       await tx.insert(incomingLetterHistories).values({ letterId: id, userId, aktivitas: "Surat dihapus" });
       return true;
@@ -137,6 +139,7 @@ export class IncomingLetterRepository {
         .from(incomingLetters)
         .where(and(eq(incomingLetters.id, id), isNull(incomingLetters.deletedAt)));
       if (!current) return null;
+      if (!["Draft", "Tercatat"].includes(current.status)) throw new ClientError("Surat ini sudah diteruskan atau diproses dan tidak dapat diteruskan lagi");
       const status = "Menunggu Kepala Sekolah";
       await tx.update(incomingLetters).set({ status }).where(eq(incomingLetters.id, id));
       await tx.insert(incomingLetterHistories).values({

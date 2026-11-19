@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, timestamp, int, date, datetime, boolean } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, timestamp, int, date, datetime, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
 
 // 1. Roles Table
 export const roles = mysqlTable("roles", {
@@ -99,6 +99,17 @@ export const dispositionHistories = mysqlTable("disposition_histories", {
   keterangan: text("keterangan"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const dispositionAssignments = mysqlTable("disposition_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  dispositionId: int("disposition_id").notNull().references(() => dispositions.id, { onDelete: "cascade" }),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 }).default("Belum Diproses").notNull(),
+  catatanTindakLanjut: text("catatan_tindak_lanjut"),
+  tanggalSelesai: datetime("tanggal_selesai", { mode: "date" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({ dispositionUserUnique: uniqueIndex("disposition_assignments_disposition_user_unique").on(table.dispositionId, table.userId) }));
 
 export const outgoingLetters = mysqlTable("outgoing_letters", {
   id: int("id").autoincrement().primaryKey(),
