@@ -38,21 +38,25 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFu
 });
 router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, email, nip, password, role_id } = req.body ?? {};
+    const { name, email, nip, password, role_id, department_id, jabatan } = req.body ?? {};
     if (typeof name !== "string" || !name.trim() || name.trim().length > 150) throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
     if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ClientError("Email tidak valid");
     if (typeof nip !== "string" || !/^\d{8,18}$/.test(nip.trim())) throw new ClientError("NIP harus terdiri dari 8 sampai 18 angka");
     if (typeof password !== "string" || password.length < 8 || !/[a-z]/i.test(password) || !/[0-9]/.test(password)) throw new ClientError("Kata sandi awal harus minimal 8 karakter dan mengandung huruf serta angka");
     const roleId = Number(role_id);
     if (!Number.isSafeInteger(roleId) || roleId < 1) throw new ClientError("Role wajib dipilih");
-    const [role] = await db.select({ id: roles.id }).from(roles).where(eq(roles.id, roleId));
+    const [role] = await db.select({ id: roles.id, name: roles.name }).from(roles).where(eq(roles.id, roleId));
     if (!role) throw new ClientError("Role tidak ditemukan");
+    const departmentId = department_id == null || department_id === "" ? null : Number(department_id);
+    if (role.name === "pegawai" && (!Number.isSafeInteger(departmentId) || departmentId! <= 0)) throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
+    if (departmentId !== null && (!Number.isSafeInteger(departmentId) || !(await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, departmentId), isNull(departments.deletedAt)))).length)) throw new ClientError("Unit Kerja tidak ditemukan atau sudah nonaktif");
+    if (jabatan !== undefined && (typeof jabatan !== "string" || jabatan.length > 100)) throw new ClientError("Jabatan tidak valid");
     const normalizedEmail = email.trim().toLowerCase(), normalizedNip = nip.trim();
     const [existing] = await db.select({ id: users.id }).from(users).where(or(eq(users.email, normalizedEmail), eq(users.nip, normalizedNip)));
     if (existing) throw new ClientError("Email atau NIP sudah terdaftar");
     const passwordHash = await bcrypt.hash(password, 10);
-    const [inserted] = await db.insert(users).values({ name: name.trim(), email: normalizedEmail, nip: normalizedNip, passwordHash, roleId });
-    return res.status(201).json({ success: true, data: { id: Number(inserted.insertId), name: name.trim(), email: normalizedEmail, nip: normalizedNip, role_id: roleId } });
+    const [inserted] = await db.insert(users).values({ name: name.trim(), email: normalizedEmail, nip: normalizedNip, passwordHash, roleId, departmentId, jabatan: typeof jabatan === "string" ? jabatan.trim() || null : null });
+    return res.status(201).json({ success: true, data: { id: Number(inserted.insertId), name: name.trim(), email: normalizedEmail, nip: normalizedNip, role_id: roleId, department_id: departmentId } });
   } catch (error) { return next(error); }
 });
 router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -60,12 +64,17 @@ router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFu
     const userId = id(req.params.id), body = req.body as Record<string, unknown>;
     const allowed = new Set(["name", "email", "nip", "role_id", "department_id", "jabatan"]);
     if (!body || typeof body !== "object" || Object.keys(body).length === 0 || Object.keys(body).some((key) => !allowed.has(key))) throw new ClientError("Invalid user update fields");
+    const [current] = await db.select({ role: roles.name, departmentId: users.departmentId }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(eq(users.id, userId));
+    if (!current) throw new NotFoundError("User not found");
     const update: Partial<typeof users.$inferInsert> = {};
     if (body.name !== undefined) { if (typeof body.name !== "string" || !body.name.trim() || body.name.length > 150) throw new ClientError("Invalid name"); update.name = body.name.trim(); }
     if (body.email !== undefined) { if (typeof body.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) throw new ClientError("Invalid email"); update.email = body.email.trim().toLowerCase(); }
     if (body.nip !== undefined) { if (typeof body.nip !== "string" || !/^\d{8,18}$/.test(body.nip)) throw new ClientError("Invalid NIP"); update.nip = body.nip; }
-    if (body.role_id !== undefined) { const roleId = Number(body.role_id); if (!Number.isSafeInteger(roleId) || roleId < 1 || !(await db.select({ id: roles.id }).from(roles).where(eq(roles.id, roleId))).length) throw new ClientError("Invalid role_id"); update.roleId = roleId; }
-    if (body.department_id !== undefined) { const departmentId = body.department_id === null ? null : Number(body.department_id); if (departmentId !== null && (!Number.isSafeInteger(departmentId) || !(await db.select({ id: departments.id }).from(departments).where(eq(departments.id, departmentId))).length)) throw new ClientError("Invalid department_id"); update.departmentId = departmentId; }
+    let nextRole = current.role;
+    if (body.role_id !== undefined) { const roleId = Number(body.role_id); const [role] = await db.select({ id: roles.id, name: roles.name }).from(roles).where(eq(roles.id, roleId)); if (!Number.isSafeInteger(roleId) || roleId < 1 || !role) throw new ClientError("Invalid role_id"); update.roleId = roleId; nextRole = role.name; }
+    let nextDepartment = current.departmentId;
+    if (body.department_id !== undefined) { const departmentId = body.department_id === null ? null : Number(body.department_id); if (departmentId !== null && (!Number.isSafeInteger(departmentId) || !(await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, departmentId), isNull(departments.deletedAt)))).length)) throw new ClientError("Unit Kerja tidak ditemukan atau sudah nonaktif"); update.departmentId = departmentId; nextDepartment = departmentId; }
+    if (nextRole === "pegawai" && nextDepartment === null) throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
     if (body.jabatan !== undefined) { if (body.jabatan !== null && typeof body.jabatan !== "string") throw new ClientError("Invalid jabatan"); update.jabatan = body.jabatan as string | null; }
     await db.update(users).set(update).where(eq(users.id, userId));
     return res.json({ success: true, message: "Profil pengguna diperbarui" });

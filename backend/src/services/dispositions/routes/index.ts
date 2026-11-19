@@ -3,8 +3,8 @@ import { authenticate, authorizeRoles } from "../../../middleware/authMiddleware
 import { dispositionController } from "../controller/dispositionController";
 
 const router = Router();
-router.get("/inbox", authenticate, dispositionController.inbox);
-router.get("/surat/:letterId", authenticate, dispositionController.tree);
+router.get("/inbox", authenticate, authorizeRoles("admin", "kepala_sekolah", "pegawai"), dispositionController.inbox);
+router.get("/surat/:letterId", authenticate, authorizeRoles("admin", "kepala_sekolah"), dispositionController.tree);
 router.post("/", authenticate, authorizeRoles("kepala_sekolah", "admin"), dispositionController.create);
 router.get("/:id/dokumen", authenticate, dispositionController.document);
 router.get("/:id/riwayat", authenticate, dispositionController.history);

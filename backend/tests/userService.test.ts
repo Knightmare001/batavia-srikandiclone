@@ -39,7 +39,8 @@ describe("UserService Integration Logic Tests", () => {
       findByNip: async () => null,
       findByEmail: async () => null,
       findRoleById: async () => null,
-      findRoleByName: async () => ({ id: 5, name: "guru_staf", description: "", createdAt: new Date() }),
+      findRoleByName: async () => ({ id: 5, name: "pegawai", description: "", createdAt: new Date() }),
+      hasActiveDepartment: async () => true,
       insertUser: async (data: any) => {
         insertedData = data;
         return {
@@ -64,6 +65,7 @@ describe("UserService Integration Logic Tests", () => {
       email: "budi@sekolah.sch.id",
       password: "Password123!",
       nip: "198501012010011002",
+      departmentId: 1,
     });
 
     assert.equal(result.id, 2);

@@ -21,9 +21,12 @@ export class UserService {
     if (existingNip) {
       throw new InvariantError("nip already exists", 400);
     }
+    if (!(await this.repo.hasActiveDepartment(payload.departmentId))) {
+      throw new InvariantError("Unit Kerja not found or inactive", 400);
+    }
 
     // Public registration always receives the least-privileged default role.
-    const defaultRole = await this.repo.findRoleByName("guru_staf");
+    const defaultRole = await this.repo.findRoleByName("pegawai");
     if (!defaultRole) {
       throw new InvariantError("Default role not found in system", 500);
     }

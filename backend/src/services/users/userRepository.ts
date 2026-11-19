@@ -1,6 +1,6 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { users, roles, type User, type Role } from "../../lib/schema";
+import { users, roles, departments, type User, type Role } from "../../lib/schema";
 
 export class UserRepository {
   async findByNip(nip: string, includeDeleted = false): Promise<User | null> {
@@ -32,6 +32,11 @@ export class UserRepository {
   async findRoleByName(name: string): Promise<Role | null> {
     const [result] = await db.select().from(roles).where(eq(roles.name, name));
     return result || null;
+  }
+
+  async hasActiveDepartment(id: number) {
+    const [department] = await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, id), isNull(departments.deletedAt)));
+    return !!department;
   }
 
   async insertUser(data: {

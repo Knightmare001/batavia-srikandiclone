@@ -1,8 +1,8 @@
 import { ClientError } from "../../../exceptions/clientError";
 
 export type InitialDispositionPayload = {
-  letter_id: number; target_type: "department" | "user" | "all";
-  to_department_id?: number | null; to_user_id?: number | null; instruksi: string;
+  letter_id: number; target_type: "department" | "all";
+  to_department_id?: number | null; instruksi: string;
   prioritas: "Biasa" | "Penting" | "Segera"; batas_waktu?: string | null; catatan_tambahan?: string | null;
 };
 
@@ -32,16 +32,14 @@ function validDate(value: unknown, name: string) {
 export function validateInitialPayload(value: unknown): InitialDispositionPayload {
   const b = object(value);
   const targetType = b.target_type;
-  if (!["department", "user", "all"].includes(String(targetType))) throw new ClientError("target_type must be department, user, or all");
+  if (!["department", "all"].includes(String(targetType))) throw new ClientError("target_type must be department or all");
   const departmentId = b.to_department_id == null ? null : positiveId(b.to_department_id, "to_department_id");
-  const userId = b.to_user_id == null ? null : positiveId(b.to_user_id, "to_user_id");
   if (targetType === "department" && !departmentId) throw new ClientError("to_department_id is required for department target");
-  if (targetType === "user" && !userId) throw new ClientError("to_user_id is required for user target");
-  if (targetType === "all" && (departmentId || userId)) throw new ClientError("all target cannot specify a department or user");
+  if (targetType === "all" && departmentId) throw new ClientError("to_department_id must be omitted for all target");
   if (typeof b.instruksi !== "string" || !b.instruksi.trim()) throw new ClientError("instruksi is required");
   const prioritas = b.prioritas ?? "Biasa";
   if (!["Biasa", "Penting", "Segera"].includes(String(prioritas))) throw new ClientError("prioritas must be Biasa, Penting, or Segera");
-  return { letter_id: positiveId(b.letter_id, "letter_id"), target_type: targetType as InitialDispositionPayload["target_type"], to_department_id: departmentId, to_user_id: userId, instruksi: b.instruksi.trim(), prioritas: prioritas as InitialDispositionPayload["prioritas"], batas_waktu: validDate(b.batas_waktu, "batas_waktu"), catatan_tambahan: optionalText(b.catatan_tambahan, "catatan_tambahan") };
+  return { letter_id: positiveId(b.letter_id, "letter_id"), target_type: targetType as InitialDispositionPayload["target_type"], to_department_id: departmentId, instruksi: b.instruksi.trim(), prioritas: prioritas as InitialDispositionPayload["prioritas"], batas_waktu: validDate(b.batas_waktu, "batas_waktu"), catatan_tambahan: optionalText(b.catatan_tambahan, "catatan_tambahan") };
 }
 
 export function validateForwardPayload(value: unknown) {

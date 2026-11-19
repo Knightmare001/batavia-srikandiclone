@@ -11,12 +11,13 @@ function Allow({ roles, children }: { roles: string[]; children: React.ReactNode
 export default function App() {
   return <Routes><Route path="/login" element={<LoginPage />} /><Route element={<RequireAuth />}><Route element={<AppLayout />}>
     <Route index element={<DashboardPage />} />
-    <Route path="arsip" element={<ArsipGlobalPage />} />
+    <Route path="arsip" element={<Allow roles={["admin", "tu", "kepala_sekolah"]}><ArsipGlobalPage /></Allow>} />
     <Route path="surat-masuk" element={<Allow roles={["admin", "tu"]}><LetterPage kind="masuk" /></Allow>} />
     <Route path="surat-keluar" element={<Allow roles={["admin", "tu"]}><LetterPage kind="keluar" /></Allow>} />
-    <Route path="disposisi" element={<Allow roles={["admin", "kepala_sekolah", "kepala_unit"]}><DisposisiPage /></Allow>} />
-    <Route path="tugas" element={<Allow roles={["guru_staf", "kepala_unit"]}><TugasPage /></Allow>} />
-    <Route path="tugas/riwayat" element={<Allow roles={["guru_staf", "kepala_unit"]}><TugasPage history /></Allow>} />
+    <Route path="disposisi/riwayat" element={<Allow roles={["kepala_sekolah"]}><TugasPage history historyTitle="Riwayat Disposisi" /></Allow>} />
+    <Route path="disposisi" element={<Allow roles={["admin", "kepala_sekolah"]}><DisposisiPage /></Allow>} />
+    <Route path="tugas" element={<Allow roles={["pegawai"]}><TugasPage /></Allow>} />
+    <Route path="tugas/riwayat" element={<Allow roles={["pegawai"]}><TugasPage history /></Allow>} />
     <Route path="admin/users" element={<Allow roles={["admin"]}><UserManagementPage /></Allow>} />
     <Route path="admin/departments" element={<Allow roles={["admin"]}><DepartmentManagementPage /></Allow>} />
     <Route path="admin/audit" element={<Allow roles={["admin"]}><AuditPage /></Allow>} />

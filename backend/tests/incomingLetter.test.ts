@@ -85,7 +85,7 @@ describe("Incoming letter authorization", () => {
         return this;
       },
     } as any;
-    authorizeRoles("tu", "admin")({ authUser: { id: 2, role: "guru_staf" } } as any, response, () => {});
+    authorizeRoles("tu", "admin")({ authUser: { id: 2, role: "pegawai" } } as any, response, () => {});
     assert.equal(status, 403);
   });
 });

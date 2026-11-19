@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { authenticate } from "../../middleware/authMiddleware";
+import { authenticate, authorizeRoles } from "../../middleware/authMiddleware";
 import { archiveController } from "./controller";
 const router = Router();
-router.get("/statistik", authenticate, archiveController.statistics);
-router.get("/:jenis/:id", authenticate, archiveController.detail);
-router.get("/", authenticate, archiveController.list);
+const canViewArchive = [authenticate, authorizeRoles("admin", "tu", "kepala_sekolah")];
+router.get("/statistik", ...canViewArchive, archiveController.statistics);
+router.get("/:jenis/:id", ...canViewArchive, archiveController.detail);
+router.get("/", ...canViewArchive, archiveController.list);
 export { router as archiveRouter };

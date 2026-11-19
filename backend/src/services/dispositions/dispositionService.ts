@@ -31,9 +31,13 @@ async function createNumberLock<T>(year: number, operation: () => Promise<T>): P
 export class DispositionService {
   async inbox(userId: number, role: string, filters: PageFilter) {
     const [user] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, userId));
-    const targetFilter = role === "guru_staf" ? or(eq(dispositions.toUserId, userId), eq(dispositions.targetType, "all"))! : or(eq(dispositions.toUserId, userId), eq(dispositions.targetType, "all"), ...(user?.departmentId ? [eq(dispositions.toDepartmentId, user.departmentId)] : []))!;
-    const conditions = [active, targetFilter];
-    if (filters.tab === "history") conditions.push(eq(dispositions.statusTindakLanjut, "Selesai"));
+    const targetFilter = or(eq(dispositions.toUserId, userId), ...(role === "pegawai" && user?.departmentId ? [eq(dispositions.toDepartmentId, user.departmentId)] : role === "pegawai" ? [] : [eq(dispositions.targetType, "all")]))!;
+    const principalHistory = role === "kepala_sekolah" && filters.tab === "history";
+    const visibleToActor = principalHistory
+      ? or(eq(dispositions.fromUserId, userId), and(targetFilter, eq(dispositions.statusTindakLanjut, "Selesai")))!
+      : targetFilter;
+    const conditions = [active, visibleToActor];
+    if (filters.tab === "history" && !principalHistory) conditions.push(eq(dispositions.statusTindakLanjut, "Selesai"));
     else if (filters.tab === "active") conditions.push(inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]));
     if (filters.status) conditions.push(eq(dispositions.statusTindakLanjut, filters.status));
     if (filters.prioritas) conditions.push(eq(dispositions.prioritas, filters.prioritas));
@@ -43,28 +47,31 @@ export class DispositionService {
       .from(dispositions).innerJoin(incomingLetters, eq(dispositions.letterId, incomingLetters.id))
       .innerJoin(users, eq(dispositions.fromUserId, users.id)).where(where)
       .orderBy(asc(dispositions.createdAt)).limit(filters.limit).offset((filters.page - 1) * filters.limit);
-    return { data: rows.map(({ d, l, sender }) => ({ id: d.id, nomor_disposisi: d.nomorDisposisi, surat: { id: l.id, nomor_agenda: l.nomorAgenda, nomor_surat: l.nomorSurat, pengirim: l.pengirim, perihal: l.perihal }, pemberi_instruksi: sender, instruksi: d.instruksi, prioritas: d.prioritas, batas_waktu: d.batasWaktu, status_tindak_lanjut: d.statusTindakLanjut, created_at: d.createdAt })), pagination: { page: filters.page, limit: filters.limit, total_items: Number(total?.total ?? 0), total_pages: Math.ceil(Number(total?.total ?? 0) / filters.limit) } };
+    return { data: rows.map(({ d, l, sender }) => ({ id: d.id, nomor_disposisi: d.nomorDisposisi, surat: { id: l.id, nomor_agenda: l.nomorAgenda, nomor_surat: l.nomorSurat, pengirim: l.pengirim, perihal: l.perihal }, pemberi_instruksi: sender, target_type: d.targetType, instruksi: d.instruksi, prioritas: d.prioritas, batas_waktu: d.batasWaktu, status_tindak_lanjut: d.statusTindakLanjut, created_at: d.createdAt })), pagination: { page: filters.page, limit: filters.limit, total_items: Number(total?.total ?? 0), total_pages: Math.ceil(Number(total?.total ?? 0) / filters.limit) } };
   }
 
   async create(payload: InitialDispositionPayload, actorId: number) {
     const [letter] = await db.select().from(incomingLetters).where(and(eq(incomingLetters.id, payload.letter_id), isNull(incomingLetters.deletedAt)));
     if (!letter) throw new NotFoundError("Incoming letter not found");
     if (!["Menunggu Kepala Sekolah", "Didisposisikan"].includes(letter.status)) throw new ClientError("Letter is not ready for disposition");
-    const recipient = payload.target_type === "department" ? (await db.select({ name: departments.name }).from(departments).where(eq(departments.id, payload.to_department_id!)))[0]?.name
-      : payload.target_type === "user" ? (await db.select({ name: users.name }).from(users).where(and(eq(users.id, payload.to_user_id!), isNull(users.deletedAt))))[0]?.name : "seluruh pengguna";
+    const recipient = payload.target_type === "all" ? "Seluruh pengguna"
+      : (await db.select({ name: departments.name }).from(departments).where(and(eq(departments.id, payload.to_department_id!), isNull(departments.deletedAt))))[0]?.name;
     if (!recipient) throw new ClientError("Disposition target not found");
+    const isBroadcast = payload.target_type === "all";
+    const completedAt = isBroadcast ? new Date() : null;
     const year = new Date().getFullYear();
     const created = await createNumberLock(year, async () => db.transaction(async (tx) => {
       const [maxRow] = await tx.select({ max: sql<number>`MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(${dispositions.nomorDisposisi}, '/', 1), '-', -1) AS UNSIGNED))` }).from(dispositions).where(like(dispositions.nomorDisposisi, `DSP-%/${year}`));
       const nomor = `DSP-${String(Number(maxRow?.max ?? 0) + 1).padStart(3, "0")}/${year}`;
-      const [inserted] = await tx.insert(dispositions).values({ letterId: letter.id, fromUserId: actorId, targetType: payload.target_type, toDepartmentId: payload.to_department_id ?? null, toUserId: payload.to_user_id ?? null, instruksi: payload.instruksi, catatanTambahan: payload.catatan_tambahan ?? null, prioritas: payload.prioritas, batasWaktu: payload.batas_waktu, nomorDisposisi: nomor });
-      if (letter.status === "Menunggu Kepala Sekolah") await tx.update(incomingLetters).set({ status: "Didisposisikan" }).where(eq(incomingLetters.id, letter.id));
+      const [inserted] = await tx.insert(dispositions).values({ letterId: letter.id, fromUserId: actorId, targetType: payload.target_type, toDepartmentId: payload.to_department_id ?? null, toUserId: null, instruksi: payload.instruksi, catatanTambahan: payload.catatan_tambahan ?? null, prioritas: payload.prioritas, batasWaktu: payload.batas_waktu, nomorDisposisi: nomor, statusTindakLanjut: isBroadcast ? "Selesai" : "Belum Diproses", tanggalSelesai: completedAt });
+      await tx.update(incomingLetters).set({ status: isBroadcast ? "Selesai" : "Didisposisikan" }).where(eq(incomingLetters.id, letter.id));
       const dispositionId = Number(inserted.insertId);
-      await tx.insert(dispositionHistories).values({ dispositionId, userId: actorId, aktivitas: "Tugas diberikan", keterangan: `Surat didisposisikan kepada ${recipient}` });
+      await tx.insert(dispositionHistories).values({ dispositionId, userId: actorId, aktivitas: isBroadcast ? "Disposisi selesai" : "Tugas diberikan", keterangan: `Surat didisposisikan kepada ${recipient}${isBroadcast ? " dan otomatis diselesaikan" : ""}` });
       await tx.insert(incomingLetterHistories).values({ letterId: letter.id, userId: actorId, aktivitas: "Disposisi dibuat", keterangan: `Surat didisposisikan kepada ${recipient}` });
-      return { id: Number(inserted.insertId), nomor_disposisi: nomor, tanggal_disposisi: new Date().toISOString() };
+      if (isBroadcast) await tx.insert(incomingLetterHistories).values({ letterId: letter.id, userId: actorId, aktivitas: "Surat selesai", keterangan: "Disposisi ditujukan kepada semua dan otomatis diselesaikan." });
+      return { id: Number(inserted.insertId), nomor_disposisi: nomor, status_tindak_lanjut: isBroadcast ? "Selesai" : "Belum Diproses", tanggal_disposisi: new Date().toISOString() };
     }));
-    const recipients = payload.target_type === "user" && payload.to_user_id ? [payload.to_user_id] : payload.target_type === "department" && payload.to_department_id ? (await db.select({ id: users.id }).from(users).where(and(eq(users.departmentId, payload.to_department_id), isNull(users.deletedAt)))).map((u) => u.id) : [];
+    const recipients = payload.target_type === "department" && payload.to_department_id ? (await db.select({ id: users.id }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(and(eq(users.departmentId, payload.to_department_id), eq(roles.name, "pegawai"), isNull(users.deletedAt)))).map((u) => u.id) : [];
     await Promise.all(recipients.map((userId) => sendNotification({ userId, title: "Disposisi Baru", message: `Anda menerima disposisi ${created.nomor_disposisi}.`, type: "disposisi", refId: created.id, linkUrl: `/disposisi/${created.id}` }).catch((error) => console.error("Notification write failed", error))));
     return created;
   }
@@ -77,16 +84,16 @@ export class DispositionService {
 
   private async assertRecipient(id: number, actorId: number) {
     const { d } = await this.findDisposition(id);
-    const [u] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, actorId));
-    if (!((d.targetType === "user" && d.toUserId === actorId) || (d.targetType === "department" && !!u?.departmentId && d.toDepartmentId === u.departmentId))) throw new ClientError("You are not a recipient of this disposition", 403);
+    const [u] = await db.select({ departmentId: users.departmentId, role: roles.name }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(eq(users.id, actorId));
+    if (!((d.targetType === "user" && d.toUserId === actorId) || (u?.role === "pegawai" && d.targetType === "department" && !!u.departmentId && d.toDepartmentId === u.departmentId) || d.targetType === "all")) throw new ClientError("You are not a recipient of this disposition", 403);
     return d;
   }
 
   async forward(id: number, actorId: number, role: string, payload: { to_user_id: number; instruksi: string; batas_waktu: string | null; catatan_tambahan?: string | null }) {
-    if (role === "guru_staf") throw new ClientError("Guru/staf tidak dapat meneruskan tugas", 403);
+    if (role === "pegawai") throw new ClientError("Pegawai tidak dapat meneruskan disposisi", 403);
     const parent = await this.assertRecipient(id, actorId);
     if (parent.statusTindakLanjut === "Selesai") throw new ClientError("A completed disposition cannot be forwarded");
-    const [recipient] = await db.select({ name: users.name, departmentId: users.departmentId }).from(users).where(and(eq(users.id, payload.to_user_id), isNull(users.deletedAt)));
+    const [recipient] = await db.select({ name: users.name, departmentId: users.departmentId }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).innerJoin(departments, eq(users.departmentId, departments.id)).where(and(eq(users.id, payload.to_user_id), eq(roles.name, "pegawai"), isNull(users.deletedAt), isNull(departments.deletedAt)));
     if (!recipient) throw new ClientError("to_user_id was not found");
     if (parent.targetType === "department" && recipient.departmentId !== parent.toDepartmentId) throw new ClientError("Recipient must belong to the parent disposition department");
     const year = new Date().getFullYear();
@@ -105,7 +112,6 @@ export class DispositionService {
 
   async updateFollowUp(id: number, actorId: number, role: string, payload: { status: "Belum Diproses" | "Diproses" | "Selesai"; catatan_tindak_lanjut?: string | null }) {
     const current = await this.assertRecipient(id, actorId);
-    if (role === "guru_staf" && (current.toUserId !== actorId || current.parentDispositionId === null)) throw new ClientError("Anda tidak memiliki akses terhadap tugas ini", 403);
     if (!canAdvanceDisposition(current.statusTindakLanjut, payload.status)) throw new ClientError("Invalid follow-up status transition");
     const [letter] = await db.select().from(incomingLetters).where(eq(incomingLetters.id, current.letterId));
     await db.transaction(async (tx) => {
@@ -134,17 +140,17 @@ export class DispositionService {
 
   async detail(id: number, actorId: number, role: string) {
     const { d, letter } = await this.findDisposition(id);
-    const allowed = role === "admin" || role === "tu" || role === "kepala_sekolah" || d.fromUserId === actorId || d.toUserId === actorId || (d.targetType === "all" && role === "guru_staf") || (role !== "guru_staf" && await this.userInDepartment(actorId, d.toDepartmentId));
+    const allowed = role === "admin" || role === "tu" || role === "kepala_sekolah" || d.fromUserId === actorId || d.toUserId === actorId || (d.targetType === "all" && role !== "pegawai") || (role === "pegawai" && await this.userInDepartment(actorId, d.toDepartmentId));
     if (!allowed) throw new ClientError("Forbidden", 403);
-    const children = role === "guru_staf" ? [] : await db.select({ d: dispositions, name: users.name }).from(dispositions).leftJoin(users, eq(dispositions.toUserId, users.id)).where(and(eq(dispositions.parentDispositionId, id), active)).orderBy(asc(dispositions.id));
+    const children = role === "pegawai" ? [] : await db.select({ d: dispositions, name: users.name }).from(dispositions).leftJoin(users, eq(dispositions.toUserId, users.id)).where(and(eq(dispositions.parentDispositionId, id), active)).orderBy(asc(dispositions.id));
     const [sender] = await db.select({ name: users.name }).from(users).where(eq(users.id, d.fromUserId));
     const [department] = d.toDepartmentId ? await db.select({ name: departments.name }).from(departments).where(eq(departments.id, d.toDepartmentId)) : [];
-    return { id: d.id, nomor_disposisi: d.nomorDisposisi, surat: { id: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, perihal: letter.perihal, pengirim: letter.pengirim, tanggal_surat: letter.tanggalSurat, file_name: letter.fileName }, pemberi_instruksi: sender?.name, target_type: d.targetType, penerima: d.toUserId ? (await db.select({ name: users.name }).from(users).where(eq(users.id, d.toUserId)))[0]?.name : department?.name ?? "Seluruh pengguna", instruksi: d.instruksi, catatan_tambahan: d.catatanTambahan, prioritas: d.prioritas, batas_waktu: d.batasWaktu, status_tindak_lanjut: d.statusTindakLanjut, catatan_tindak_lanjut: d.catatanTindakLanjut, tanggal_selesai: d.tanggalSelesai, sub_disposisi: children.map(({ d: child, name }) => ({ id: child.id, nomor_disposisi: child.nomorDisposisi, penerima: name ?? "Penerima departemen", instruksi: child.instruksi, status_tindak_lanjut: child.statusTindakLanjut, catatan_tindak_lanjut: child.catatanTindakLanjut })) };
+    return { id: d.id, nomor_disposisi: d.nomorDisposisi, surat: { id: letter.id, nomor_agenda: letter.nomorAgenda, nomor_surat: letter.nomorSurat, perihal: letter.perihal, pengirim: letter.pengirim, tanggal_surat: letter.tanggalSurat, file_name: letter.fileName }, pemberi_instruksi: sender?.name, target_type: d.targetType, penerima: d.toUserId ? (await db.select({ name: users.name }).from(users).where(eq(users.id, d.toUserId)))[0]?.name : department?.name ?? "Seluruh pengguna", instruksi: d.instruksi, catatan_tambahan: d.catatanTambahan, prioritas: d.prioritas, batas_waktu: d.batasWaktu, status_tindak_lanjut: d.statusTindakLanjut, catatan_tindak_lanjut: d.catatanTindakLanjut, tanggal_selesai: d.tanggalSelesai, sub_disposisi: children.map(({ d: child, name }) => ({ id: child.id, nomor_disposisi: child.nomorDisposisi, penerima: name ?? "Penerima unit kerja", instruksi: child.instruksi, status_tindak_lanjut: child.statusTindakLanjut, catatan_tindak_lanjut: child.catatanTindakLanjut })) };
   }
 
   async document(id: number, actorId: number, role: string) {
     const { d, letter } = await this.findDisposition(id);
-    const allowed = role === "admin" || role === "tu" || role === "kepala_sekolah" || d.fromUserId === actorId || d.toUserId === actorId || (d.targetType === "all" && role === "guru_staf") || (role !== "guru_staf" && await this.userInDepartment(actorId, d.toDepartmentId));
+    const allowed = role === "admin" || role === "tu" || role === "kepala_sekolah" || d.fromUserId === actorId || d.toUserId === actorId || (d.targetType === "all" && role !== "pegawai") || (role === "pegawai" && await this.userInDepartment(actorId, d.toDepartmentId));
     if (!allowed) throw new ClientError("Forbidden", 403);
     return { fileName: letter.fileName, mimeType: getIncomingLetterDocumentMime(letter.filePath), buffer: await readIncomingLetterDocument(letter.filePath) };
   }

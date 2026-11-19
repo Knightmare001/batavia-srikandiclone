@@ -4,7 +4,7 @@ export interface CreateUserPayload {
   name?: string;
   email: string;
   password: string;
-  departmentId?: number;
+  departmentId: number;
   nip: string;
   jabatan?: string;
 }
@@ -59,6 +59,11 @@ export function validateUserPayload(payload: any): asserts payload is CreateUser
 
   // NIP is required for account registration and login.
   validateNip(nip);
+
+  const departmentId = Number(payload.departmentId);
+  if (!Number.isSafeInteger(departmentId) || departmentId <= 0) {
+    throw new InvariantError("Validation error: A valid Unit Kerja is required");
+  }
 
   // Public registration cannot choose a privileged role.
   if (payload.roleId !== undefined) {

@@ -2,7 +2,7 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import { db, poolConnection } from "./db";
 import { roles, departments, users } from "./schema";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, like, not } from "drizzle-orm";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
@@ -15,8 +15,7 @@ export async function seedDatabase() {
       { name: "admin", description: "System Administrator" },
       { name: "tu", description: "Tata Usaha" },
       { name: "kepala_sekolah", description: "Kepala Sekolah" },
-      { name: "kepala_unit", description: "Kepala Unit Kerja / Wakasek" },
-      { name: "guru_staf", description: "Guru dan Staf Sekolah" },
+      { name: "pegawai", description: "Pegawai Sekolah" },
     ];
 
     for (const role of initialRoles) {
@@ -76,40 +75,30 @@ export async function seedDatabase() {
       }
     }
 
-    // 4. Seed a test account for every role and department combination.
-    const allRoles = await db.select().from(roles);
-    const allDepartments = await db.select().from(departments);
+    // 4. Keep exactly one demo account per non-admin role. Old demo users are
+    // deactivated instead of deleted so existing audit and letter history stays intact.
+    const demoAccounts = [
+      { role: "tu", name: "Demo Tata Usaha", email: "demo.tu@example.test", nip: "199001010000000002", department: "Tata Usaha", jabatan: "Tata Usaha" },
+      { role: "kepala_sekolah", name: "Demo Kepala Sekolah", email: "demo.kepala-sekolah@example.test", nip: "199001010000000003", department: "Tata Usaha", jabatan: "Kepala Sekolah" },
+      { role: "pegawai", name: "Demo Pegawai", email: "demo.pegawai@example.test", nip: "199001010000000004", department: "Kurikulum", jabatan: "Guru" },
+    ];
+    const demoEmails = demoAccounts.map((account) => account.email);
+    await db.update(users).set({ deletedAt: new Date() }).where(and(like(users.email, "demo.%@example.test"), not(inArray(users.email, demoEmails))));
     const initialPasswordHash = await bcrypt.hash("CobaAkun2026!", 10);
-    let createdTestAccounts = 0;
-    for (const [roleIndex, role] of allRoles.entries()) {
-      for (const [departmentIndex, department] of allDepartments.entries()) {
-        // The default seeded admin already covers this combination.
-        if (role.name === "admin" && department.name === "Tata Usaha") continue;
-        const slug = `${role.name}-${department.name}`
-          .normalize("NFKD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
-        const email = `demo.${slug}@example.test`;
-        const nip = `990000${String(roleIndex + 1).padStart(2, "0")}${String(departmentIndex + 1).padStart(2, "0")}000000`;
-        const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-        if (!existing) {
-          await db.insert(users).values({
-            name: `Demo ${role.name} - ${department.name}`,
-            email,
-            nip,
-            passwordHash: initialPasswordHash,
-            roleId: role.id,
-            departmentId: department.id,
-            jabatan: role.description ?? role.name,
-          });
-          createdTestAccounts += 1;
-        }
-        console.log(`  ${role.name} / ${department.name}: NIP ${nip}, ${email}`);
+    for (const account of demoAccounts) {
+      const [role] = await db.select({ id: roles.id }).from(roles).where(eq(roles.name, account.role));
+      const [department] = await db.select({ id: departments.id }).from(departments).where(eq(departments.name, account.department));
+      if (!role || !department) throw new Error(`Missing role or Unit Kerja for ${account.email}`);
+      const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, account.email));
+      const values = { name: account.name, nip: account.nip, email: account.email, passwordHash: initialPasswordHash, roleId: role.id, departmentId: department.id, jabatan: account.jabatan, deletedAt: null };
+      if (existing) {
+        await db.update(users).set(values).where(eq(users.id, existing.id));
+      } else {
+        await db.insert(users).values(values);
       }
+      console.log(`  ${account.role}: NIP ${account.nip}, ${account.email}`);
     }
-    console.log(`✓ Created ${createdTestAccounts} role/department test accounts (shared initial password: CobaAkun2026!)`);
+    console.log("✓ Seeded one demo account for each non-admin role (shared initial password: CobaAkun2026!)");
 
     console.log("🎉 Seeding completed successfully!");
   } catch (error) {

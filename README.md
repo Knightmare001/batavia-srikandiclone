@@ -181,7 +181,7 @@ JWT_SECRET=isi_dengan_secret_acak_minimal_32_karakter
 
 Jika NIP tidak ditemukan atau password salah, endpoint mengembalikan `401` dengan pesan `nip atau password salah`.
 
-Gunakan `access_token` sebagai `Authorization: Bearer <access_token>` untuk endpoint yang memerlukan autentikasi. Pendaftaran publik selalu memberi role `guru_staf`; role tidak dapat dipilih dari payload.
+Gunakan `access_token` sebagai `Authorization: Bearer <access_token>` untuk endpoint yang memerlukan autentikasi. Role sistem: `admin`, `tu`, `kepala_sekolah`, dan `pegawai`. Pegawai wajib ditempatkan pada Unit Kerja; Admin mengelola Unit Kerja secara dinamis.
 
 ### Surat Masuk
 Semua endpoint berikut memerlukan bearer token. Mutasi hanya dapat dilakukan oleh role `tu` atau `admin`.

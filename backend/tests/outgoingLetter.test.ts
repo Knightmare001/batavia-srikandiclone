@@ -32,7 +32,7 @@ describe("Outgoing letter validation and access", () => {
     let status = 200;
     let nextCalled = false;
     const response = { status(code: number) { status = code; return this; }, json() { return this; } } as never;
-    guard({ authUser: { id: 1, role: "guru_staf" } } as never, response, (() => { nextCalled = true; }) as never);
+    guard({ authUser: { id: 1, role: "pegawai" } } as never, response, (() => { nextCalled = true; }) as never);
     assert.equal(status, 403);
     assert.equal(nextCalled, false);
     guard({ authUser: { id: 2, role: "tu" } } as never, response, (() => { nextCalled = true; }) as never);

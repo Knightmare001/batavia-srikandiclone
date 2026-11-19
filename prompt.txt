@@ -1,5 +1,81 @@
-sekarang buatkan frontend atau tampilannya dengan menngkiti layout srikandi dimana fitur atau navigasi ada di sebelah kiri dengan ikon ikonnya untuk desain gunakan desain yg minimalis dengan dominant warna putih dan hitam(untuk darkmode) dan tambahkan nuansa warna hijau yang biasanya ada di madrasah atau pesantren karena ini untuk sekolah islam
+Saya ingin melakukan refactoring pada backend aplikasi Sistem Pengarsipan Surat Sekolah yang menggunakan Node.js, Express.js, MariaDB, dan JWT.
 
-gunakan react versi terbaru dan styling gunakan tailwind css untuk file di folder frontend dengan hirarki file menyesuaikan best practice dari react dan tailwind css
+Lakukan perubahan berdasarkan struktur dan implementasi kode yang sudah ada. dan seusaikan dengan keperluan perubahan databasenya kayak misalnya ada atribut yg harus diganti atau dihapus maka lakukan
 
-buatkan issueny menggunakan bahasa high level only karena untuk memudahkan programmer junior lain dalam memahaminya.
+1. Tujuan Perubahan
+
+Sederhanakan sistem role dan penerima disposisi dengan menggunakan konsep Unit Kerja sebagai pengelompokan pengguna sekaligus tujuan disposisi.
+
+Sistem harus memungkinkan Admin menambahkan Unit Kerja baru secara dinamis tanpa perlu mengubah source code atau menambahkan role baru.
+
+Contoh Unit Kerja:
+
+Wakasek Kurikulum
+
+Wakasek Kesiswaan
+
+Wakasek Sarpras
+
+Wakasek Humas
+
+Tata Usaha
+
+Guru
+
+Perpustakaan
+
+BK
+
+Daftar tersebut hanya contoh awal. Admin harus dapat menambah, mengubah, dan menonaktifkan Unit Kerja melalui API.
+
+2. Sederhanakan Role Menjadi 4 Role
+
+Hapus konsep role khusus Wakasek (kepala_unit) dan guru/staf (guru_staf).
+
+Gunakan hanya empat role berikut:
+
+admin
+
+Mengelola akun pengguna.
+
+Mengelola Unit Kerja.
+
+Melihat audit trail sistem.
+
+Memiliki akses administrasi sistem.
+
+tu
+
+Mencatat dan mengelola surat masuk.
+
+Meneruskan surat masuk kepada Kepala Sekolah.
+
+Mencatat dan mengelola surat keluar.
+
+Mengelola arsip surat sesuai kewenangannya.
+
+kepala_sekolah
+
+Melihat surat masuk.
+
+Membaca dokumen surat.
+
+Membuat disposisi.
+
+Menentukan penerima disposisi berdasarkan Unit Kerja atau pengguna tertentu.
+
+Memantau tindak lanjut disposisi.
+
+pegawai
+
+Melihat disposisi yang ditujukan kepadanya.
+
+Membaca dokumen surat asli.
+
+Mengubah status pengerjaan.
+
+Mengisi laporan hasil tindak lanjut.
+
+Melihat riwayat tugas.
+
+Wakasek, guru, dan staf semuanya menggunakan role pegawai. Perbedaannya ditentukan oleh Unit Kerja masing-masing.

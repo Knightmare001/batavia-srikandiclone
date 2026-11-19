@@ -1,5 +1,4 @@
-import { and, count, eq, gte, inArray, isNotNull, isNull, lt, or, desc, ne } from "drizzle-orm";
-import { alias } from "drizzle-orm/mysql-core";
+import { and, count, eq, gte, inArray, isNotNull, isNull, lt, or, desc } from "drizzle-orm";
 import { db } from "../../lib/db";
 import { departments, dispositions, incomingLetters, outgoingLetters, roles, systemAuditLogs, users } from "../../lib/schema";
 
@@ -13,7 +12,7 @@ export class DashboardService {
         db.select({ role: roles.name, total: count() }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(isNull(users.deletedAt)).groupBy(roles.name),
         db.select().from(systemAuditLogs).orderBy(desc(systemAuditLogs.createdAt)).limit(10),
       ]);
-      return { total_pengguna_aktif: await total(users, isNull(users.deletedAt)), total_departemen: await total(departments), pengguna_per_role: byRole.map((r) => ({ role: r.role, total: Number(r.total) })), audit_terbaru: recentLogs };
+      return { total_pengguna_aktif: await total(users, isNull(users.deletedAt)), total_unit_kerja_aktif: await total(departments, isNull(departments.deletedAt)), pengguna_per_role: byRole.map((r) => ({ role: r.role, total: Number(r.total) })), audit_terbaru: recentLogs };
     }
     if (role === "tu") return {
       total_surat_masuk: await total(incomingLetters, isNull(incomingLetters.deletedAt)), total_surat_keluar: await total(outgoingLetters, isNull(outgoingLetters.deletedAt)),
@@ -25,11 +24,15 @@ export class DashboardService {
       return { surat_menunggu_disposisi: await total(incomingLetters, and(isNull(incomingLetters.deletedAt), eq(incomingLetters.status, "Menunggu Kepala Sekolah"))), disposisi_berjalan: await total(dispositions, and(isNull(dispositions.deletedAt), inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]))), surat_prioritas_tinggi: priority };
     }
     const [user] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, userId));
-    if (role === "kepala_unit") {
-      const recipient = user?.departmentId ? eq(dispositions.toDepartmentId, user.departmentId) : eq(dispositions.toUserId, userId);
-      const child = alias(dispositions, "child_dispositions"), parent = alias(dispositions, "parent_dispositions");
-      const [awaiting] = await db.select({ total: count() }).from(child).innerJoin(parent, eq(child.parentDispositionId, parent.id)).where(and(isNull(child.deletedAt), isNull(parent.deletedAt), eq(parent.fromUserId, userId), eq(child.statusTindakLanjut, "Selesai"), ne(parent.statusTindakLanjut, "Selesai")));
-      return { disposisi_diterima: await total(dispositions, and(isNull(dispositions.deletedAt), recipient)), tugas_diteruskan: await total(dispositions, and(isNull(dispositions.deletedAt), eq(dispositions.fromUserId, userId), isNotNull(dispositions.parentDispositionId))), laporan_menunggu_verifikasi: Number(awaiting?.total ?? 0) };
+    if (role === "pegawai") {
+      const recipient = or(eq(dispositions.toUserId, userId), ...(user?.departmentId ? [eq(dispositions.toDepartmentId, user.departmentId)] : []))!;
+      const activeTask = and(isNull(dispositions.deletedAt), recipient, inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]));
+      const completedTask = and(isNull(dispositions.deletedAt), recipient, eq(dispositions.statusTindakLanjut, "Selesai"));
+      return {
+        tugas_aktif: await total(dispositions, activeTask),
+        tugas_selesai: await total(dispositions, completedTask),
+        tugas_diteruskan: await total(dispositions, and(isNull(dispositions.deletedAt), eq(dispositions.fromUserId, userId), isNotNull(dispositions.parentDispositionId))),
+      };
     }
     const mine = or(eq(dispositions.toUserId, userId), eq(dispositions.targetType, "all"))!;
     const [upcoming] = await db.select({ id: dispositions.id, nomor_disposisi: dispositions.nomorDisposisi, instruksi: dispositions.instruksi, batas_waktu: dispositions.batasWaktu, status: dispositions.statusTindakLanjut }).from(dispositions).where(and(isNull(dispositions.deletedAt), mine, inArray(dispositions.statusTindakLanjut, ["Belum Diproses", "Diproses"]))).orderBy(dispositions.batasWaktu).limit(5);

@@ -1,4 +1,4 @@
-export type Role = "admin" | "tu" | "kepala_sekolah" | "kepala_unit" | "guru_staf";
+export type Role = "admin" | "tu" | "kepala_sekolah" | "pegawai";
 export interface SessionUser { id?: number; name: string; nip: string; email: string; role: Role | string; }
 export interface ApiResponse<T> { success?: boolean; data: T; message?: string; }
 export interface PageInfo { page: number; limit: number; total?: number; total_items?: number; total_pages: number; }
