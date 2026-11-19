@@ -76,6 +76,41 @@ export async function seedDatabase() {
       }
     }
 
+    // 4. Seed a test account for every role and department combination.
+    const allRoles = await db.select().from(roles);
+    const allDepartments = await db.select().from(departments);
+    const initialPasswordHash = await bcrypt.hash("CobaAkun2026!", 10);
+    let createdTestAccounts = 0;
+    for (const [roleIndex, role] of allRoles.entries()) {
+      for (const [departmentIndex, department] of allDepartments.entries()) {
+        // The default seeded admin already covers this combination.
+        if (role.name === "admin" && department.name === "Tata Usaha") continue;
+        const slug = `${role.name}-${department.name}`
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        const email = `demo.${slug}@example.test`;
+        const nip = `990000${String(roleIndex + 1).padStart(2, "0")}${String(departmentIndex + 1).padStart(2, "0")}000000`;
+        const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+        if (!existing) {
+          await db.insert(users).values({
+            name: `Demo ${role.name} - ${department.name}`,
+            email,
+            nip,
+            passwordHash: initialPasswordHash,
+            roleId: role.id,
+            departmentId: department.id,
+            jabatan: role.description ?? role.name,
+          });
+          createdTestAccounts += 1;
+        }
+        console.log(`  ${role.name} / ${department.name}: NIP ${nip}, ${email}`);
+      }
+    }
+    console.log(`✓ Created ${createdTestAccounts} role/department test accounts (shared initial password: CobaAkun2026!)`);
+
     console.log("🎉 Seeding completed successfully!");
   } catch (error) {
     console.error("❌ Seeding failed:", error);

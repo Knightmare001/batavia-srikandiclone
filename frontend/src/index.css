@@ -55,6 +55,9 @@ button { cursor: pointer; }
 .panel { background: #fff; border: 1px solid #e7ede9; border-radius: 13px; box-shadow: 0 2px 6px #14251b05; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; }
 .metric-card { min-height: 146px; border: 1px solid #e6ede8; border-radius: 13px; padding: 17px 18px; background: #fff; box-shadow: 0 2px 6px #14251b05; }
+.metric-link { display: block; color: inherit; text-decoration: none; border-radius: 13px; }
+.metric-link:focus-visible { outline: 3px solid #44a77d; outline-offset: 3px; }
+.metric-link:hover .metric-card { border-color: #44a77d; }
 .dark .metric-card { background: #152235; border-color: #263548; }
 .metric-top { display: flex; align-items: center; justify-content: space-between; }
 .metric-icon { display: grid; place-items: center; width: 36px; height: 36px; color: #07845b; background: #e8f7ee; border-radius: 10px; }
@@ -90,6 +93,7 @@ button { cursor: pointer; }
 .dark input, .dark select, .dark textarea { color: #dce8e1; background-color: #17263a; border-color: #35475b; }
 .filter-row { display: flex; align-items: center; gap: 8px; width: 100%; border-top: 1px solid #eef2ef; padding-top: 12px; }
 .filter-row select, .filter-row input, .inline-form input, .report-input textarea, .form-stack input, .search-input { min-height: 36px; border: 1px solid #e4eae6; border-radius: 7px; padding: 0 10px; outline: none; color: #44524a; background: #fff; font-size: 11px; }
+.form-stack textarea { min-height: 84px; border: 1px solid #e4eae6; border-radius: 7px; padding: 9px 10px; outline: none; color: #44524a; background: #fff; font-size: 11px; resize: vertical; }
 .filter-row select:focus, input:focus, textarea:focus { border-color: #44a77d; box-shadow: 0 0 0 3px #07905e14; }
 .filter-label { display: flex; align-items: center; gap: 6px; color: #829087; font-size: 11px; margin-right: 4px; }
 .filter-row select { max-width: 170px; }
@@ -117,6 +121,9 @@ td small { margin-top: 4px; color: #9aa69f; font-size: 10px; }
 .empty-state strong { color: #55645b; }
 .pagination { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; border-top: 1px solid #edf1ee; color: #87948d; font-size: 10px; }
 .pagination div { display: flex; gap: 7px; }
+.row-actions { display: flex; gap: 2px; white-space: nowrap; }
+.row-actions .icon-button { width: 30px; height: 30px; }
+.row-actions .icon-button:disabled { opacity: .4; cursor: not-allowed; }
 .pagination .button { min-height: 31px; font-size: 10px; }
 .error-box, .success-box { padding: 11px 13px; border-radius: 8px; color: #a13e44; background: #fff0ef; border: 1px solid #f8d7d4; font-size: 12px; }
 .success-box { color: #08734f; background: #eaf8ef; border-color: #d3eddb; }
