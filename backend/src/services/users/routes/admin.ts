@@ -25,11 +25,34 @@ router.get("/", async (req: AuthenticatedRequest, res: Response, next: NextFunct
     return res.json({ success: true, data: rows.map((u) => ({ ...u, aktif: u.aktif === null })), pagination: { page, limit, total, total_pages: Math.ceil(total / limit) } });
   } catch (error) { return next(error); }
 });
+router.get("/roles", async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try { return res.json({ success: true, data: await db.select({ id: roles.id, name: roles.name, description: roles.description }).from(roles) }); }
+  catch (error) { return next(error); }
+});
 router.get("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const [u] = await db.select({ id: users.id, nip: users.nip, name: users.name, email: users.email, jabatan: users.jabatan, role_id: roles.id, role: roles.name, department_id: departments.id, department: departments.name, deletedAt: users.deletedAt }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).leftJoin(departments, eq(users.departmentId, departments.id)).where(eq(users.id, id(req.params.id)));
     if (!u) throw new NotFoundError("User not found");
     return res.json({ success: true, data: { ...u, aktif: u.deletedAt === null, deletedAt: undefined } });
+  } catch (error) { return next(error); }
+});
+router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { name, email, nip, password, role_id } = req.body ?? {};
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 150) throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ClientError("Email tidak valid");
+    if (typeof nip !== "string" || !/^\d{8,18}$/.test(nip.trim())) throw new ClientError("NIP harus terdiri dari 8 sampai 18 angka");
+    if (typeof password !== "string" || password.length < 8 || !/[a-z]/i.test(password) || !/[0-9]/.test(password)) throw new ClientError("Kata sandi awal harus minimal 8 karakter dan mengandung huruf serta angka");
+    const roleId = Number(role_id);
+    if (!Number.isSafeInteger(roleId) || roleId < 1) throw new ClientError("Role wajib dipilih");
+    const [role] = await db.select({ id: roles.id }).from(roles).where(eq(roles.id, roleId));
+    if (!role) throw new ClientError("Role tidak ditemukan");
+    const normalizedEmail = email.trim().toLowerCase(), normalizedNip = nip.trim();
+    const [existing] = await db.select({ id: users.id }).from(users).where(or(eq(users.email, normalizedEmail), eq(users.nip, normalizedNip)));
+    if (existing) throw new ClientError("Email atau NIP sudah terdaftar");
+    const passwordHash = await bcrypt.hash(password, 10);
+    const [inserted] = await db.insert(users).values({ name: name.trim(), email: normalizedEmail, nip: normalizedNip, passwordHash, roleId });
+    return res.status(201).json({ success: true, data: { id: Number(inserted.insertId), name: name.trim(), email: normalizedEmail, nip: normalizedNip, role_id: roleId } });
   } catch (error) { return next(error); }
 });
 router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
