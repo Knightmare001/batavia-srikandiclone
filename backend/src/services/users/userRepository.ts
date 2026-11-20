@@ -1,6 +1,12 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { users, roles, departments, type User, type Role } from "../../lib/schema";
+import {
+  users,
+  roles,
+  departments,
+  type User,
+  type Role,
+} from "../../lib/schema";
 
 export class UserRepository {
   async findByNip(nip: string, includeDeleted = false): Promise<User | null> {
@@ -35,7 +41,10 @@ export class UserRepository {
   }
 
   async hasActiveDepartment(id: number) {
-    const [department] = await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, id), isNull(departments.deletedAt)));
+    const [department] = await db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(and(eq(departments.id, id), isNull(departments.deletedAt)));
     return !!department;
   }
 
@@ -58,7 +67,10 @@ export class UserRepository {
       jabatan: data.jabatan || null,
     });
 
-    const [user] = await db.select().from(users).where(eq(users.id, inserted.insertId));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, inserted.insertId));
     if (!user) {
       throw new Error("Failed to retrieve created user");
     }

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { validateIncomingLetterPayload, validateUploadedDocument } from "../src/services/incomingLetters/validator/schema";
+import {
+  validateIncomingLetterPayload,
+  validateUploadedDocument,
+} from "../src/services/incomingLetters/validator/schema";
 import { authorizeRoles } from "../src/middleware/authMiddleware";
 import { createAccessToken, verifyAccessToken } from "../src/lib/jwt";
 
@@ -17,15 +20,29 @@ const validPayload = {
 describe("Incoming letter validation", () => {
   it("accepts complete metadata and rejects missing required fields", () => {
     assert.doesNotThrow(() => validateIncomingLetterPayload(validPayload));
-    assert.throws(() => validateIncomingLetterPayload({ ...validPayload, pengirim: "" }), /are required/);
+    assert.throws(
+      () => validateIncomingLetterPayload({ ...validPayload, pengirim: "" }),
+      /are required/,
+    );
   });
 
   it("rejects invalid calendar dates and overlong values", () => {
     assert.throws(
-      () => validateIncomingLetterPayload({ ...validPayload, tanggal_surat: "2026-02-30" }),
-      /valid YYYY-MM-DD/
+      () =>
+        validateIncomingLetterPayload({
+          ...validPayload,
+          tanggal_surat: "2026-02-30",
+        }),
+      /valid YYYY-MM-DD/,
     );
-    assert.throws(() => validateIncomingLetterPayload({ ...validPayload, perihal: "x".repeat(256) }), /exceeds 255/);
+    assert.throws(
+      () =>
+        validateIncomingLetterPayload({
+          ...validPayload,
+          perihal: "x".repeat(256),
+        }),
+      /exceeds 255/,
+    );
   });
 
   it("accepts PDF and Word signatures and rejects mismatched content", () => {
@@ -45,7 +62,8 @@ describe("Incoming letter validation", () => {
 
     const docx = {
       originalname: "letter.docx",
-      mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mimetype:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       buffer: Buffer.concat([
         Buffer.from([0x50, 0x4b, 0x03, 0x04]),
         Buffer.from("[Content_Types].xml word/document.xml"),
@@ -53,8 +71,14 @@ describe("Incoming letter validation", () => {
     } as Express.Multer.File;
     assert.equal(validateUploadedDocument(docx), ".docx");
 
-    const fakePdf = { ...pdf, buffer: Buffer.from("not a PDF") } as Express.Multer.File;
-    assert.throws(() => validateUploadedDocument(fakePdf), /content does not match/);
+    const fakePdf = {
+      ...pdf,
+      buffer: Buffer.from("not a PDF"),
+    } as Express.Multer.File;
+    assert.throws(
+      () => validateUploadedDocument(fakePdf),
+      /content does not match/,
+    );
   });
 });
 
@@ -71,7 +95,11 @@ describe("Incoming letter authorization", () => {
     for (const role of ["tu", "admin"]) {
       let calledNext = false;
       const response = { status: () => response, json: () => response } as any;
-      authorizeRoles("tu", "admin")({ authUser: { id: 1, role } } as any, response, () => (calledNext = true));
+      authorizeRoles("tu", "admin")(
+        { authUser: { id: 1, role } } as any,
+        response,
+        () => (calledNext = true),
+      );
       assert.equal(calledNext, true);
     }
 
@@ -85,7 +113,11 @@ describe("Incoming letter authorization", () => {
         return this;
       },
     } as any;
-    authorizeRoles("tu", "admin")({ authUser: { id: 2, role: "pegawai" } } as any, response, () => {});
+    authorizeRoles("tu", "admin")(
+      { authUser: { id: 2, role: "pegawai" } } as any,
+      response,
+      () => {},
+    );
     assert.equal(status, 403);
   });
 });

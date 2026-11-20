@@ -33,9 +33,15 @@ function validatePassword(password: unknown): asserts password is string {
   }
 }
 
-export function validateUserPayload(payload: any): asserts payload is CreateUserPayload {
+export function validateUserPayload(
+  payload: any,
+): asserts payload is CreateUserPayload {
   // 1. Validate request body exists
-  if (!payload || typeof payload !== "object" || Object.keys(payload).length === 0) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    Object.keys(payload).length === 0
+  ) {
     throw new InvariantError("Request body cannot be empty");
   }
 
@@ -62,12 +68,16 @@ export function validateUserPayload(payload: any): asserts payload is CreateUser
 
   const departmentId = Number(payload.departmentId);
   if (!Number.isSafeInteger(departmentId) || departmentId <= 0) {
-    throw new InvariantError("Validation error: A valid Unit Kerja is required");
+    throw new InvariantError(
+      "Validation error: A valid Unit Kerja is required",
+    );
   }
 
   // Public registration cannot choose a privileged role.
   if (payload.roleId !== undefined) {
-    throw new InvariantError("Role assignment is not allowed during registration");
+    throw new InvariantError(
+      "Role assignment is not allowed during registration",
+    );
   }
 
   // Validate name if provided
@@ -76,8 +86,14 @@ export function validateUserPayload(payload: any): asserts payload is CreateUser
   }
 }
 
-export function validateLoginPayload(payload: any): asserts payload is LoginPayload {
-  if (!payload || typeof payload !== "object" || Object.keys(payload).length === 0) {
+export function validateLoginPayload(
+  payload: any,
+): asserts payload is LoginPayload {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    Object.keys(payload).length === 0
+  ) {
     throw new InvariantError("Request body cannot be empty");
   }
 
@@ -88,4 +104,3 @@ export function validateLoginPayload(payload: any): asserts payload is LoginPayl
   }
   validatePassword(payload.password);
 }
-

@@ -14,10 +14,19 @@ describe("Guru disposition follow-up", () => {
   });
 
   it("requires a completion report", () => {
-    assert.throws(() => validateFollowUpPayload({ status: "Selesai" }), /catatan_tindak_lanjut is required/);
-    assert.deepEqual(validateFollowUpPayload({ status: "Selesai", catatan_tindak_lanjut: "Pemeriksaan selesai" }), {
-      status: "Selesai",
-      catatan_tindak_lanjut: "Pemeriksaan selesai",
-    });
+    assert.throws(
+      () => validateFollowUpPayload({ status: "Selesai" }),
+      /catatan_tindak_lanjut is required/,
+    );
+    assert.deepEqual(
+      validateFollowUpPayload({
+        status: "Selesai",
+        catatan_tindak_lanjut: "Pemeriksaan selesai",
+      }),
+      {
+        status: "Selesai",
+        catatan_tindak_lanjut: "Pemeriksaan selesai",
+      },
+    );
   });
 });

@@ -5,7 +5,10 @@ import { randomUUID } from "node:crypto";
 import { ClientError, NotFoundError } from "../../exceptions/clientError";
 import { validateUploadedDocument } from "./validator/schema";
 
-const uploadsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../../../data/uploads");
+const uploadsDirectory = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../data/uploads",
+);
 
 export async function storeIncomingLetterDocument(file: Express.Multer.File) {
   const extension = validateUploadedDocument(file);

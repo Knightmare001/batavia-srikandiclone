@@ -1,11 +1,112 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, BookOpenCheck, LockKeyhole, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpenCheck,
+  LockKeyhole,
+  UserRound,
+} from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 export function LoginPage() {
-  const { user, login } = useAuth(), navigate = useNavigate();
-  const [nip, setNip] = useState(""), [password, setPassword] = useState(""), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const { user, login } = useAuth(),
+    navigate = useNavigate();
+  const [nip, setNip] = useState(""),
+    [password, setPassword] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/" replace />;
-  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await login(nip, password); navigate("/"); } catch (e) { setError(e instanceof Error ? e.message : "Login gagal"); } finally { setBusy(false); } }
-  return <main className="login-page"><div className="login-art"><div className="login-logo"><BookOpenCheck size={22} /></div><div className="login-art-copy"><span className="eyebrow light-eyebrow">PENGELOLAAN ARSIP DIGITAL</span><h1>Semua surat,<br />tertata dalam satu<br /><em>amanah.</em></h1><p>Ruang kerja persuratan dan kearsipan madrasah yang tertib, transparan, dan mudah ditelusuri.</p></div><div className="login-art-footer">batavia - srikandiClone <span>•</span> Sistem Kearsipan Digital</div></div><section className="login-panel"><div className="login-form-wrap"><span className="eyebrow">SELAMAT DATANG KEMBALI</span><h2>Masuk ke akun Anda</h2><p className="muted">Gunakan NIP dan kata sandi yang terdaftar.</p><form onSubmit={submit} className="form-stack"><label>NIP<div className="input-with-icon"><UserRound size={17} /><input value={nip} onChange={(e) => setNip(e.target.value)} inputMode="numeric" autoComplete="username" required placeholder="Masukkan NIP" /></div></label><label>Kata sandi<div className="input-with-icon"><LockKeyhole size={17} /><input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" required placeholder="Masukkan kata sandi" /></div></label>{error && <div className="error-box">{error}</div>}<button className="button button-primary button-wide" disabled={busy}>{busy ? "Memeriksa..." : <>Masuk ke aplikasi <ArrowRight size={17} /></>}</button></form><div className="login-secure"><LockKeyhole size={14} /> Koneksi aman untuk akun internal sekolah</div></div></section></main>;
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await login(nip, password);
+      navigate("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Login gagal");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <main className="login-page">
+      <div className="login-art">
+        <div className="login-logo">
+          <BookOpenCheck size={22} />
+        </div>
+        <div className="login-art-copy">
+          <span className="eyebrow light-eyebrow">
+            PENGELOLAAN ARSIP DIGITAL
+          </span>
+          <h1>
+            Semua surat,
+            <br />
+            tertata dalam satu
+            <br />
+            <em>amanah.</em>
+          </h1>
+          <p>
+            Ruang kerja persuratan dan kearsipan madrasah yang tertib,
+            transparan, dan mudah ditelusuri.
+          </p>
+        </div>
+        <div className="login-art-footer">
+          batavia - srikandiClone <span>•</span> Sistem Kearsipan Digital
+        </div>
+      </div>
+      <section className="login-panel">
+        <div className="login-form-wrap">
+          <span className="eyebrow">SELAMAT DATANG KEMBALI</span>
+          <h2>Masuk ke akun Anda</h2>
+          <p className="muted">Gunakan NIP dan kata sandi yang terdaftar.</p>
+          <form onSubmit={submit} className="form-stack">
+            <label>
+              NIP
+              <div className="input-with-icon">
+                <UserRound size={17} />
+                <input
+                  value={nip}
+                  onChange={(e) => setNip(e.target.value)}
+                  inputMode="numeric"
+                  autoComplete="username"
+                  required
+                  placeholder="Masukkan NIP"
+                />
+              </div>
+            </label>
+            <label>
+              Kata sandi
+              <div className="input-with-icon">
+                <LockKeyhole size={17} />
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  placeholder="Masukkan kata sandi"
+                />
+              </div>
+            </label>
+            {error && <div className="error-box">{error}</div>}
+            <button
+              className="button button-primary button-wide"
+              disabled={busy}
+            >
+              {busy ? (
+                "Memeriksa..."
+              ) : (
+                <>
+                  Masuk ke aplikasi <ArrowRight size={17} />
+                </>
+              )}
+            </button>
+          </form>
+          <div className="login-secure">
+            <LockKeyhole size={14} /> Koneksi aman untuk akun internal sekolah
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }

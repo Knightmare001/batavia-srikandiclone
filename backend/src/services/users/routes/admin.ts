@@ -3,117 +3,444 @@ import { and, count, eq, isNull, like, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { db } from "../../../lib/db";
 import { departments, roles, users } from "../../../lib/schema";
-import { authenticate, authorizeRoles } from "../../../middleware/authMiddleware";
+import {
+  authenticate,
+  authorizeRoles,
+} from "../../../middleware/authMiddleware";
 import { ClientError, NotFoundError } from "../../../exceptions/clientError";
 import type { AuthenticatedRequest } from "../../../lib/jwt";
 import type { NextFunction, Response } from "express";
 
 const router = Router();
-router.get("/me", authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try { const [user] = await db.select({ id: users.id, name: users.name, email: users.email, nip: users.nip }).from(users).where(eq(users.id, req.authUser!.id)); if (!user) throw new NotFoundError("User not found"); return res.json({ success: true, data: user }); }
-  catch (error) { return next(error); }
-});
-router.patch("/me", authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const { name, email } = req.body ?? {};
-    if (typeof name !== "string" || !name.trim() || name.trim().length > 150) throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
-    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ClientError("Email tidak valid");
-    const normalizedEmail = email.trim().toLowerCase();
-    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail));
-    if (existing && existing.id !== req.authUser!.id) throw new ClientError("Email sudah digunakan");
-    await db.update(users).set({ name: name.trim(), email: normalizedEmail }).where(eq(users.id, req.authUser!.id));
-    return res.json({ success: true, data: { id: req.authUser!.id, name: name.trim(), email: normalizedEmail } });
-  } catch (error) { return next(error); }
-});
+router.get(
+  "/me",
+  authenticate,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const [user] = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          nip: users.nip,
+        })
+        .from(users)
+        .where(eq(users.id, req.authUser!.id));
+      if (!user) throw new NotFoundError("User not found");
+      return res.json({ success: true, data: user });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.patch(
+  "/me",
+  authenticate,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { name, email } = req.body ?? {};
+      if (typeof name !== "string" || !name.trim() || name.trim().length > 150)
+        throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
+      if (
+        typeof email !== "string" ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      )
+        throw new ClientError("Email tidak valid");
+      const normalizedEmail = email.trim().toLowerCase();
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, normalizedEmail));
+      if (existing && existing.id !== req.authUser!.id)
+        throw new ClientError("Email sudah digunakan");
+      await db
+        .update(users)
+        .set({ name: name.trim(), email: normalizedEmail })
+        .where(eq(users.id, req.authUser!.id));
+      return res.json({
+        success: true,
+        data: {
+          id: req.authUser!.id,
+          name: name.trim(),
+          email: normalizedEmail,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 router.use(authenticate, authorizeRoles("admin"));
-function id(value: unknown) { const n = typeof value === "string" ? Number(value) : NaN; if (!Number.isSafeInteger(n) || n <= 0) throw new ClientError("id must be a positive integer"); return n; }
-router.get("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const page = Number(req.query.page ?? 1), limit = Number(req.query.limit ?? 10);
-    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new ClientError("Invalid pagination");
-    const search = typeof req.query.search === "string" ? `%${req.query.search.trim()}%` : undefined;
-    const where = and(search ? or(like(users.name, search), like(users.email, search), like(users.nip, search)) : undefined);
-    const [countRows, rows] = await Promise.all([
-      db.select({ total: count() }).from(users).where(where),
-      db.select({ id: users.id, nip: users.nip, name: users.name, email: users.email, jabatan: users.jabatan, role_id: roles.id, role: roles.name, department_id: departments.id, department: departments.name, aktif: users.deletedAt }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).leftJoin(departments, eq(users.departmentId, departments.id)).where(where).limit(limit).offset((page - 1) * limit),
-    ]);
-    const total = Number(countRows[0]?.total ?? 0);
-    return res.json({ success: true, data: rows.map((u) => ({ ...u, aktif: u.aktif === null })), pagination: { page, limit, total, total_pages: Math.ceil(total / limit) } });
-  } catch (error) { return next(error); }
-});
-router.get("/roles", async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try { return res.json({ success: true, data: await db.select({ id: roles.id, name: roles.name, description: roles.description }).from(roles) }); }
-  catch (error) { return next(error); }
-});
-router.get("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const [u] = await db.select({ id: users.id, nip: users.nip, name: users.name, email: users.email, jabatan: users.jabatan, role_id: roles.id, role: roles.name, department_id: departments.id, department: departments.name, deletedAt: users.deletedAt }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).leftJoin(departments, eq(users.departmentId, departments.id)).where(eq(users.id, id(req.params.id)));
-    if (!u) throw new NotFoundError("User not found");
-    return res.json({ success: true, data: { ...u, aktif: u.deletedAt === null, deletedAt: undefined } });
-  } catch (error) { return next(error); }
-});
-router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const { name, email, nip, password, role_id, department_id, jabatan } = req.body ?? {};
-    if (typeof name !== "string" || !name.trim() || name.trim().length > 150) throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
-    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new ClientError("Email tidak valid");
-    if (typeof nip !== "string" || !/^\d{8,18}$/.test(nip.trim())) throw new ClientError("NIP harus terdiri dari 8 sampai 18 angka");
-    if (typeof password !== "string" || password.length < 8 || !/[a-z]/i.test(password) || !/[0-9]/.test(password)) throw new ClientError("Kata sandi awal harus minimal 8 karakter dan mengandung huruf serta angka");
-    const roleId = Number(role_id);
-    if (!Number.isSafeInteger(roleId) || roleId < 1) throw new ClientError("Role wajib dipilih");
-    const [role] = await db.select({ id: roles.id, name: roles.name }).from(roles).where(eq(roles.id, roleId));
-    if (!role) throw new ClientError("Role tidak ditemukan");
-    const departmentId = department_id == null || department_id === "" ? null : Number(department_id);
-    if (role.name === "pegawai" && (!Number.isSafeInteger(departmentId) || departmentId! <= 0)) throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
-    if (departmentId !== null && (!Number.isSafeInteger(departmentId) || !(await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, departmentId), isNull(departments.deletedAt)))).length)) throw new ClientError("Unit Kerja tidak ditemukan atau sudah nonaktif");
-    if (jabatan !== undefined && (typeof jabatan !== "string" || jabatan.length > 100)) throw new ClientError("Jabatan tidak valid");
-    const normalizedEmail = email.trim().toLowerCase(), normalizedNip = nip.trim();
-    const [existing] = await db.select({ id: users.id }).from(users).where(or(eq(users.email, normalizedEmail), eq(users.nip, normalizedNip)));
-    if (existing) throw new ClientError("Email atau NIP sudah terdaftar");
-    const passwordHash = await bcrypt.hash(password, 10);
-    const [inserted] = await db.insert(users).values({ name: name.trim(), email: normalizedEmail, nip: normalizedNip, passwordHash, roleId, departmentId, jabatan: typeof jabatan === "string" ? jabatan.trim() || null : null });
-    return res.status(201).json({ success: true, data: { id: Number(inserted.insertId), name: name.trim(), email: normalizedEmail, nip: normalizedNip, role_id: roleId, department_id: departmentId } });
-  } catch (error) { return next(error); }
-});
-router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = id(req.params.id), body = req.body as Record<string, unknown>;
-    const allowed = new Set(["name", "email", "nip", "role_id", "department_id", "jabatan"]);
-    if (!body || typeof body !== "object" || Object.keys(body).length === 0 || Object.keys(body).some((key) => !allowed.has(key))) throw new ClientError("Invalid user update fields");
-    const [current] = await db.select({ role: roles.name, departmentId: users.departmentId }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(eq(users.id, userId));
-    if (!current) throw new NotFoundError("User not found");
-    const update: Partial<typeof users.$inferInsert> = {};
-    if (body.name !== undefined) { if (typeof body.name !== "string" || !body.name.trim() || body.name.length > 150) throw new ClientError("Invalid name"); update.name = body.name.trim(); }
-    if (body.email !== undefined) { if (typeof body.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) throw new ClientError("Invalid email"); update.email = body.email.trim().toLowerCase(); }
-    if (body.nip !== undefined) { if (typeof body.nip !== "string" || !/^\d{8,18}$/.test(body.nip)) throw new ClientError("Invalid NIP"); update.nip = body.nip; }
-    let nextRole = current.role;
-    if (body.role_id !== undefined) { const roleId = Number(body.role_id); const [role] = await db.select({ id: roles.id, name: roles.name }).from(roles).where(eq(roles.id, roleId)); if (!Number.isSafeInteger(roleId) || roleId < 1 || !role) throw new ClientError("Invalid role_id"); update.roleId = roleId; nextRole = role.name; }
-    let nextDepartment = current.departmentId;
-    if (body.department_id !== undefined) { const departmentId = body.department_id === null ? null : Number(body.department_id); if (departmentId !== null && (!Number.isSafeInteger(departmentId) || !(await db.select({ id: departments.id }).from(departments).where(and(eq(departments.id, departmentId), isNull(departments.deletedAt)))).length)) throw new ClientError("Unit Kerja tidak ditemukan atau sudah nonaktif"); update.departmentId = departmentId; nextDepartment = departmentId; }
-    if (nextRole === "pegawai" && nextDepartment === null) throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
-    if (body.jabatan !== undefined) { if (body.jabatan !== null && typeof body.jabatan !== "string") throw new ClientError("Invalid jabatan"); update.jabatan = body.jabatan as string | null; }
-    await db.update(users).set(update).where(eq(users.id, userId));
-    return res.json({ success: true, message: "Profil pengguna diperbarui" });
-  } catch (error) { return next(error); }
-});
-router.patch("/:id/status", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const active = req.body?.aktif;
-    if (typeof active !== "boolean") throw new ClientError("aktif must be a boolean");
-    const userId = id(req.params.id);
-    const result = await db.update(users).set({ deletedAt: active ? null : new Date() }).where(eq(users.id, userId));
-    if (!result[0].affectedRows) throw new NotFoundError("User not found");
-    return res.json({ success: true, aktif: active });
-  } catch (error) { return next(error); }
-});
-router.patch("/:id/password", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const password = req.body?.password;
-    if (typeof password !== "string" || password.length < 8 || !/[a-z]/i.test(password) || !/[0-9]/.test(password)) throw new ClientError("Password must contain at least 8 characters, letters, and numbers");
-    const userId = id(req.params.id), hash = await bcrypt.hash(password, 10);
-    const result = await db.update(users).set({ passwordHash: hash }).where(eq(users.id, userId));
-    if (!result[0].affectedRows) throw new NotFoundError("User not found");
-    return res.json({ success: true, message: "Password pengguna diperbarui" });
-  } catch (error) { return next(error); }
-});
+function id(value: unknown) {
+  const n = typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isSafeInteger(n) || n <= 0)
+    throw new ClientError("id must be a positive integer");
+  return n;
+}
+router.get(
+  "/",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const page = Number(req.query.page ?? 1),
+        limit = Number(req.query.limit ?? 10);
+      if (
+        !Number.isSafeInteger(page) ||
+        page < 1 ||
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > 100
+      )
+        throw new ClientError("Invalid pagination");
+      const search =
+        typeof req.query.search === "string"
+          ? `%${req.query.search.trim()}%`
+          : undefined;
+      const where = and(
+        search
+          ? or(
+              like(users.name, search),
+              like(users.email, search),
+              like(users.nip, search),
+            )
+          : undefined,
+      );
+      const [countRows, rows] = await Promise.all([
+        db.select({ total: count() }).from(users).where(where),
+        db
+          .select({
+            id: users.id,
+            nip: users.nip,
+            name: users.name,
+            email: users.email,
+            jabatan: users.jabatan,
+            role_id: roles.id,
+            role: roles.name,
+            department_id: departments.id,
+            department: departments.name,
+            aktif: users.deletedAt,
+          })
+          .from(users)
+          .innerJoin(roles, eq(users.roleId, roles.id))
+          .leftJoin(departments, eq(users.departmentId, departments.id))
+          .where(where)
+          .limit(limit)
+          .offset((page - 1) * limit),
+      ]);
+      const total = Number(countRows[0]?.total ?? 0);
+      return res.json({
+        success: true,
+        data: rows.map((u) => ({ ...u, aktif: u.aktif === null })),
+        pagination: {
+          page,
+          limit,
+          total,
+          total_pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.get(
+  "/roles",
+  async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      return res.json({
+        success: true,
+        data: await db
+          .select({
+            id: roles.id,
+            name: roles.name,
+            description: roles.description,
+          })
+          .from(roles),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.get(
+  "/:id",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const [u] = await db
+        .select({
+          id: users.id,
+          nip: users.nip,
+          name: users.name,
+          email: users.email,
+          jabatan: users.jabatan,
+          role_id: roles.id,
+          role: roles.name,
+          department_id: departments.id,
+          department: departments.name,
+          deletedAt: users.deletedAt,
+        })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .leftJoin(departments, eq(users.departmentId, departments.id))
+        .where(eq(users.id, id(req.params.id)));
+      if (!u) throw new NotFoundError("User not found");
+      return res.json({
+        success: true,
+        data: { ...u, aktif: u.deletedAt === null, deletedAt: undefined },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.post(
+  "/",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { name, email, nip, password, role_id, department_id, jabatan } =
+        req.body ?? {};
+      if (typeof name !== "string" || !name.trim() || name.trim().length > 150)
+        throw new ClientError("Nama wajib diisi (maksimal 150 karakter)");
+      if (
+        typeof email !== "string" ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      )
+        throw new ClientError("Email tidak valid");
+      if (typeof nip !== "string" || !/^\d{8,18}$/.test(nip.trim()))
+        throw new ClientError("NIP harus terdiri dari 8 sampai 18 angka");
+      if (
+        typeof password !== "string" ||
+        password.length < 8 ||
+        !/[a-z]/i.test(password) ||
+        !/[0-9]/.test(password)
+      )
+        throw new ClientError(
+          "Kata sandi awal harus minimal 8 karakter dan mengandung huruf serta angka",
+        );
+      const roleId = Number(role_id);
+      if (!Number.isSafeInteger(roleId) || roleId < 1)
+        throw new ClientError("Role wajib dipilih");
+      const [role] = await db
+        .select({ id: roles.id, name: roles.name })
+        .from(roles)
+        .where(eq(roles.id, roleId));
+      if (!role) throw new ClientError("Role tidak ditemukan");
+      const departmentId =
+        department_id == null || department_id === ""
+          ? null
+          : Number(department_id);
+      if (
+        role.name === "pegawai" &&
+        (!Number.isSafeInteger(departmentId) || departmentId! <= 0)
+      )
+        throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
+      if (
+        departmentId !== null &&
+        (!Number.isSafeInteger(departmentId) ||
+          !(
+            await db
+              .select({ id: departments.id })
+              .from(departments)
+              .where(
+                and(
+                  eq(departments.id, departmentId),
+                  isNull(departments.deletedAt),
+                ),
+              )
+          ).length)
+      )
+        throw new ClientError("Unit Kerja tidak ditemukan atau sudah nonaktif");
+      if (
+        jabatan !== undefined &&
+        (typeof jabatan !== "string" || jabatan.length > 100)
+      )
+        throw new ClientError("Jabatan tidak valid");
+      const normalizedEmail = email.trim().toLowerCase(),
+        normalizedNip = nip.trim();
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          or(eq(users.email, normalizedEmail), eq(users.nip, normalizedNip)),
+        );
+      if (existing) throw new ClientError("Email atau NIP sudah terdaftar");
+      const passwordHash = await bcrypt.hash(password, 10);
+      const [inserted] = await db
+        .insert(users)
+        .values({
+          name: name.trim(),
+          email: normalizedEmail,
+          nip: normalizedNip,
+          passwordHash,
+          roleId,
+          departmentId,
+          jabatan: typeof jabatan === "string" ? jabatan.trim() || null : null,
+        });
+      return res
+        .status(201)
+        .json({
+          success: true,
+          data: {
+            id: Number(inserted.insertId),
+            name: name.trim(),
+            email: normalizedEmail,
+            nip: normalizedNip,
+            role_id: roleId,
+            department_id: departmentId,
+          },
+        });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.put(
+  "/:id",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = id(req.params.id),
+        body = req.body as Record<string, unknown>;
+      const allowed = new Set([
+        "name",
+        "email",
+        "nip",
+        "role_id",
+        "department_id",
+        "jabatan",
+      ]);
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Object.keys(body).length === 0 ||
+        Object.keys(body).some((key) => !allowed.has(key))
+      )
+        throw new ClientError("Invalid user update fields");
+      const [current] = await db
+        .select({ role: roles.name, departmentId: users.departmentId })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(eq(users.id, userId));
+      if (!current) throw new NotFoundError("User not found");
+      const update: Partial<typeof users.$inferInsert> = {};
+      if (body.name !== undefined) {
+        if (
+          typeof body.name !== "string" ||
+          !body.name.trim() ||
+          body.name.length > 150
+        )
+          throw new ClientError("Invalid name");
+        update.name = body.name.trim();
+      }
+      if (body.email !== undefined) {
+        if (
+          typeof body.email !== "string" ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
+        )
+          throw new ClientError("Invalid email");
+        update.email = body.email.trim().toLowerCase();
+      }
+      if (body.nip !== undefined) {
+        if (typeof body.nip !== "string" || !/^\d{8,18}$/.test(body.nip))
+          throw new ClientError("Invalid NIP");
+        update.nip = body.nip;
+      }
+      let nextRole = current.role;
+      if (body.role_id !== undefined) {
+        const roleId = Number(body.role_id);
+        const [role] = await db
+          .select({ id: roles.id, name: roles.name })
+          .from(roles)
+          .where(eq(roles.id, roleId));
+        if (!Number.isSafeInteger(roleId) || roleId < 1 || !role)
+          throw new ClientError("Invalid role_id");
+        update.roleId = roleId;
+        nextRole = role.name;
+      }
+      let nextDepartment = current.departmentId;
+      if (body.department_id !== undefined) {
+        const departmentId =
+          body.department_id === null ? null : Number(body.department_id);
+        if (
+          departmentId !== null &&
+          (!Number.isSafeInteger(departmentId) ||
+            !(
+              await db
+                .select({ id: departments.id })
+                .from(departments)
+                .where(
+                  and(
+                    eq(departments.id, departmentId),
+                    isNull(departments.deletedAt),
+                  ),
+                )
+            ).length)
+        )
+          throw new ClientError(
+            "Unit Kerja tidak ditemukan atau sudah nonaktif",
+          );
+        update.departmentId = departmentId;
+        nextDepartment = departmentId;
+      }
+      if (nextRole === "pegawai" && nextDepartment === null)
+        throw new ClientError("Pegawai wajib ditempatkan pada Unit Kerja");
+      if (body.jabatan !== undefined) {
+        if (body.jabatan !== null && typeof body.jabatan !== "string")
+          throw new ClientError("Invalid jabatan");
+        update.jabatan = body.jabatan as string | null;
+      }
+      await db.update(users).set(update).where(eq(users.id, userId));
+      return res.json({ success: true, message: "Profil pengguna diperbarui" });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.patch(
+  "/:id/status",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const active = req.body?.aktif;
+      if (typeof active !== "boolean")
+        throw new ClientError("aktif must be a boolean");
+      const userId = id(req.params.id);
+      const result = await db
+        .update(users)
+        .set({ deletedAt: active ? null : new Date() })
+        .where(eq(users.id, userId));
+      if (!result[0].affectedRows) throw new NotFoundError("User not found");
+      return res.json({ success: true, aktif: active });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+router.patch(
+  "/:id/password",
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const password = req.body?.password;
+      if (
+        typeof password !== "string" ||
+        password.length < 8 ||
+        !/[a-z]/i.test(password) ||
+        !/[0-9]/.test(password)
+      )
+        throw new ClientError(
+          "Password must contain at least 8 characters, letters, and numbers",
+        );
+      const userId = id(req.params.id),
+        hash = await bcrypt.hash(password, 10);
+      const result = await db
+        .update(users)
+        .set({ passwordHash: hash })
+        .where(eq(users.id, userId));
+      if (!result[0].affectedRows) throw new NotFoundError("User not found");
+      return res.json({
+        success: true,
+        message: "Password pengguna diperbarui",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 export { router as userAdminRouter };

@@ -1,4 +1,14 @@
-import { mysqlTable, varchar, text, timestamp, int, date, datetime, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
+import {
+  mysqlTable,
+  varchar,
+  text,
+  timestamp,
+  int,
+  date,
+  datetime,
+  boolean,
+  uniqueIndex,
+} from "drizzle-orm/mysql-core";
 
 // 1. Roles Table
 export const roles = mysqlTable("roles", {
@@ -71,11 +81,17 @@ export const incomingLetterHistories = mysqlTable("incoming_letter_histories", {
 
 export const dispositions = mysqlTable("dispositions", {
   id: int("id").autoincrement().primaryKey(),
-  letterId: int("letter_id").notNull().references(() => incomingLetters.id, { onDelete: "cascade" }),
-  parentDispositionId: int("parent_disposition_id").references((): any => dispositions.id),
+  letterId: int("letter_id")
+    .notNull()
+    .references(() => incomingLetters.id, { onDelete: "cascade" }),
+  parentDispositionId: int("parent_disposition_id").references(
+    (): any => dispositions.id,
+  ),
   nomorDisposisi: varchar("nomor_disposisi", { length: 50 }).notNull().unique(),
   tanggalDisposisi: timestamp("tanggal_disposisi").defaultNow().notNull(),
-  fromUserId: int("from_user_id").notNull().references(() => users.id),
+  fromUserId: int("from_user_id")
+    .notNull()
+    .references(() => users.id),
   targetType: varchar("target_type", { length: 20 }).notNull(),
   toDepartmentId: int("to_department_id").references(() => departments.id),
   toUserId: int("to_user_id").references(() => users.id),
@@ -83,7 +99,9 @@ export const dispositions = mysqlTable("dispositions", {
   catatanTambahan: text("catatan_tambahan"),
   prioritas: varchar("prioritas", { length: 20 }).default("Biasa").notNull(),
   batasWaktu: date("batas_waktu", { mode: "string" }),
-  statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 }).default("Belum Diproses").notNull(),
+  statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 })
+    .default("Belum Diproses")
+    .notNull(),
   catatanTindakLanjut: text("catatan_tindak_lanjut"),
   tanggalSelesai: datetime("tanggal_selesai", { mode: "date" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -93,23 +111,41 @@ export const dispositions = mysqlTable("dispositions", {
 
 export const dispositionHistories = mysqlTable("disposition_histories", {
   id: int("id").autoincrement().primaryKey(),
-  dispositionId: int("disposition_id").notNull().references(() => dispositions.id, { onDelete: "cascade" }),
-  userId: int("user_id").notNull().references(() => users.id),
+  dispositionId: int("disposition_id")
+    .notNull()
+    .references(() => dispositions.id, { onDelete: "cascade" }),
+  userId: int("user_id")
+    .notNull()
+    .references(() => users.id),
   aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
   keterangan: text("keterangan"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const dispositionAssignments = mysqlTable("disposition_assignments", {
-  id: int("id").autoincrement().primaryKey(),
-  dispositionId: int("disposition_id").notNull().references(() => dispositions.id, { onDelete: "cascade" }),
-  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 }).default("Belum Diproses").notNull(),
-  catatanTindakLanjut: text("catatan_tindak_lanjut"),
-  tanggalSelesai: datetime("tanggal_selesai", { mode: "date" }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-}, (table) => ({ dispositionUserUnique: uniqueIndex("disposition_assignments_disposition_user_unique").on(table.dispositionId, table.userId) }));
+export const dispositionAssignments = mysqlTable(
+  "disposition_assignments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    dispositionId: int("disposition_id")
+      .notNull()
+      .references(() => dispositions.id, { onDelete: "cascade" }),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    statusTindakLanjut: varchar("status_tindak_lanjut", { length: 30 })
+      .default("Belum Diproses")
+      .notNull(),
+    catatanTindakLanjut: text("catatan_tindak_lanjut"),
+    tanggalSelesai: datetime("tanggal_selesai", { mode: "date" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    dispositionUserUnique: uniqueIndex(
+      "disposition_assignments_disposition_user_unique",
+    ).on(table.dispositionId, table.userId),
+  }),
+);
 
 export const outgoingLetters = mysqlTable("outgoing_letters", {
   id: int("id").autoincrement().primaryKey(),
@@ -124,8 +160,12 @@ export const outgoingLetters = mysqlTable("outgoing_letters", {
   filePath: varchar("file_path", { length: 255 }).notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
   keterangan: text("keterangan"),
-  statusSurat: varchar("status_surat", { length: 50 }).default("Tercatat").notNull(),
-  createdBy: int("created_by").notNull().references(() => users.id),
+  statusSurat: varchar("status_surat", { length: 50 })
+    .default("Tercatat")
+    .notNull(),
+  createdBy: int("created_by")
+    .notNull()
+    .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   deletedAt: timestamp("deleted_at"),
@@ -133,8 +173,12 @@ export const outgoingLetters = mysqlTable("outgoing_letters", {
 
 export const outgoingLetterHistories = mysqlTable("outgoing_letter_histories", {
   id: int("id").autoincrement().primaryKey(),
-  letterId: int("letter_id").notNull().references(() => outgoingLetters.id, { onDelete: "cascade" }),
-  userId: int("user_id").notNull().references(() => users.id),
+  letterId: int("letter_id")
+    .notNull()
+    .references(() => outgoingLetters.id, { onDelete: "cascade" }),
+  userId: int("user_id")
+    .notNull()
+    .references(() => users.id),
   aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
   keterangan: varchar("keterangan", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -142,7 +186,9 @@ export const outgoingLetterHistories = mysqlTable("outgoing_letter_histories", {
 
 export const notifications = mysqlTable("notifications", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: int("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   judul: varchar("judul", { length: 150 }).notNull(),
   pesan: text("pesan").notNull(),
   tipe: varchar("tipe", { length: 50 }).notNull(),
@@ -155,7 +201,9 @@ export const notifications = mysqlTable("notifications", {
 
 export const systemAuditLogs = mysqlTable("system_audit_logs", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("user_id").notNull().references(() => users.id),
+  userId: int("user_id")
+    .notNull()
+    .references(() => users.id),
   roleName: varchar("role_name", { length: 50 }).notNull(),
   modul: varchar("modul", { length: 50 }).notNull(),
   aktivitas: varchar("aktivitas", { length: 100 }).notNull(),
@@ -179,4 +227,3 @@ export type NewIncomingLetter = typeof incomingLetters.$inferInsert;
 
 export type IncomingLetterHistory = typeof incomingLetterHistories.$inferSelect;
 export type Disposition = typeof dispositions.$inferSelect;
-
