@@ -26,7 +26,13 @@ export class UserController {
       validateLoginPayload(req.body);
       const data = await this.service.loginUser(req.body);
       const token = await verifyAccessToken(data.access_token);
-      void writeAuditLog({ userId: Number(token.sub), roleName: String(token.role ?? "unknown"), modul: "auth", aktivitas: "Login berhasil", ipAddress: req.ip }).catch((error) => console.error("Audit log write failed", error));
+      void writeAuditLog({
+        userId: Number(token.sub),
+        roleName: String(token.role ?? "unknown"),
+        modul: "auth",
+        aktivitas: "Login berhasil",
+        ipAddress: req.ip,
+      }).catch((error) => console.error("Audit log write failed", error));
 
       return res.status(200).json({
         message: "success Login account",
@@ -39,4 +45,3 @@ export class UserController {
 }
 
 export const userController = new UserController();
-

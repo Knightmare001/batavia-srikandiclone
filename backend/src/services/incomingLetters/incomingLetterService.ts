@@ -10,37 +10,62 @@ import {
   removeIncomingLetterDocument,
   storeIncomingLetterDocument,
 } from "./fileStorage";
-import { incomingLetterRepository, type IncomingLetterFilters, type IncomingLetterRepository } from "./incomingLetterRepository";
+import {
+  incomingLetterRepository,
+  type IncomingLetterFilters,
+  type IncomingLetterRepository,
+} from "./incomingLetterRepository";
 import type { IncomingLetterPayload } from "./validator/schema";
 
 export class IncomingLetterService {
-  constructor(private repository: IncomingLetterRepository = incomingLetterRepository) {}
+  constructor(
+    private repository: IncomingLetterRepository = incomingLetterRepository,
+  ) {}
 
-  async create(payload: IncomingLetterPayload, file: Express.Multer.File | undefined, userId: number) {
+  async create(
+    payload: IncomingLetterPayload,
+    file: Express.Multer.File | undefined,
+    userId: number,
+  ) {
     if (!file) throw new ClientError("file_surat is required");
     const year = Number(payload.tanggal_diterima.slice(0, 4));
     const lockName = `incoming_letters_${year}`;
     const lockConnection = await poolConnection.getConnection();
     let lockAcquired = false;
     try {
-      const [rows] = await lockConnection.query("SELECT GET_LOCK(?, 10) AS acquired", [lockName]);
-      lockAcquired = Number((rows as Array<{ acquired: number }>)[0]?.acquired) === 1;
-      if (!lockAcquired) throw new ClientError("Could not allocate an agenda number; please retry", 503);
+      const [rows] = await lockConnection.query(
+        "SELECT GET_LOCK(?, 10) AS acquired",
+        [lockName],
+      );
+      lockAcquired =
+        Number((rows as Array<{ acquired: number }>)[0]?.acquired) === 1;
+      if (!lockAcquired)
+        throw new ClientError(
+          "Could not allocate an agenda number; please retry",
+          503,
+        );
 
       const sequence = (await this.repository.getMaxAgendaSequence(year)) + 1;
       const nomorAgenda = `SM-${String(sequence).padStart(3, "0")}/${year}`;
       const stored = await storeIncomingLetterDocument(file);
       try {
-        const letter = await this.repository.createLetter(
-          { ...payload, nomorAgenda, filePath: stored.filePath, fileName: stored.fileName, createdBy: userId },
-        );
+        const letter = await this.repository.createLetter({
+          ...payload,
+          nomorAgenda,
+          filePath: stored.filePath,
+          fileName: stored.fileName,
+          createdBy: userId,
+        });
         return { id: letter.id, nomor_agenda: letter.nomorAgenda };
       } catch (error) {
         await removeIncomingLetterDocument(stored.filePath);
         throw error;
       }
     } finally {
-      if (lockAcquired) await lockConnection.query("SELECT RELEASE_LOCK(?)", [lockName]).catch(() => undefined);
+      if (lockAcquired)
+        await lockConnection
+          .query("SELECT RELEASE_LOCK(?)", [lockName])
+          .catch(() => undefined);
       lockConnection.release();
     }
   }
@@ -86,19 +111,32 @@ export class IncomingLetterService {
     };
   }
 
-  async update(id: number, payload: Partial<IncomingLetterPayload>, file: Express.Multer.File | undefined, userId: number) {
-    if (Object.keys(payload).length === 0 && !file) throw new ClientError("No changes were provided");
-    let stored: Awaited<ReturnType<typeof storeIncomingLetterDocument>> | undefined;
+  async update(
+    id: number,
+    payload: Partial<IncomingLetterPayload>,
+    file: Express.Multer.File | undefined,
+    userId: number,
+  ) {
+    if (Object.keys(payload).length === 0 && !file)
+      throw new ClientError("No changes were provided");
+    let stored:
+      Awaited<ReturnType<typeof storeIncomingLetterDocument>> | undefined;
     if (file) stored = await storeIncomingLetterDocument(file);
 
     try {
       const result = await this.repository.updateLetter(
         id,
-        { ...payload, ...(stored ? { filePath: stored.filePath, fileName: stored.fileName } : {}) },
+        {
+          ...payload,
+          ...(stored
+            ? { filePath: stored.filePath, fileName: stored.fileName }
+            : {}),
+        },
         userId,
       );
       if (!result) throw new NotFoundError("Incoming letter not found");
-      if (result.previousFilePath) await removeIncomingLetterDocument(result.previousFilePath);
+      if (result.previousFilePath)
+        await removeIncomingLetterDocument(result.previousFilePath);
       return { id: result.letter.id, nomor_agenda: result.letter.nomorAgenda };
     } catch (error) {
       if (stored) await removeIncomingLetterDocument(stored.filePath);
@@ -114,8 +152,23 @@ export class IncomingLetterService {
   async forward(id: number, userId: number) {
     const status = await this.repository.forwardToPrincipal(id, userId);
     if (!status) throw new NotFoundError("Incoming letter not found");
-    const principals = await db.select({ id: users.id }).from(users).innerJoin(roles, eq(users.roleId, roles.id)).where(and(eq(roles.name, "kepala_sekolah"), isNull(users.deletedAt)));
-    await Promise.all(principals.map((principal) => sendNotification({ userId: principal.id, title: "Surat Masuk Menunggu Disposisi", message: `Surat masuk #${id} diteruskan untuk ditinjau.`, type: "surat_masuk", refId: id, linkUrl: `/surat-masuk/${id}` }).catch((error) => console.error("Notification write failed", error))));
+    const principals = await db
+      .select({ id: users.id })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(and(eq(roles.name, "kepala_sekolah"), isNull(users.deletedAt)));
+    await Promise.all(
+      principals.map((principal) =>
+        sendNotification({
+          userId: principal.id,
+          title: "Surat Masuk Menunggu Disposisi",
+          message: `Surat masuk #${id} diteruskan untuk ditinjau.`,
+          type: "surat_masuk",
+          refId: id,
+          linkUrl: `/surat-masuk/${id}`,
+        }).catch((error) => console.error("Notification write failed", error)),
+      ),
+    );
     return status;
   }
 

@@ -4,30 +4,569 @@ import { Badge } from "../../components/common/Badge";
 import { Button } from "../../components/common/Button";
 import { Modal } from "../../components/common/Modal";
 import { api } from "../../services/api";
-type UserRow = { id: number; name: string; email: string; nip: string; role: string; role_id: number; department_id: number | null; department?: string | null; jabatan?: string | null; aktif: boolean };
+type UserRow = {
+  id: number;
+  name: string;
+  email: string;
+  nip: string;
+  role: string;
+  role_id: number;
+  department_id: number | null;
+  department?: string | null;
+  jabatan?: string | null;
+  aktif: boolean;
+};
 type Department = { id: number; name: string; aktif?: boolean };
 type Role = { id: number; name: string; description?: string | null };
 export function UserManagementPage() {
-  const [users, setUsers] = useState<UserRow[]>([]), [roles, setRoles] = useState<Role[]>([]), [departments, setDepartments] = useState<Department[]>([]), [search, setSearch] = useState(""), [error, setError] = useState(""), [createOpen, setCreateOpen] = useState(false), [editing, setEditing] = useState<UserRow | null>(null), [busy, setBusy] = useState(false);
-  const load = () => api<{ data: UserRow[] }>(`/users?search=${encodeURIComponent(search)}&limit=100`).then((r) => setUsers(r.data)).catch((e: Error) => setError(e.message));
-  useEffect(() => { void load(); void Promise.all([api<{ data: Role[] }>("/users/roles"), api<{ data: Department[] }>("/departments")]).then(([r, d]) => { setRoles(r.data); setDepartments(d.data); }).catch((e: Error) => setError(e.message)); }, []);
-  async function createUser(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(""); const form = new FormData(event.currentTarget); try { await api<unknown>("/users", { method: "POST", body: JSON.stringify({ name: form.get("name"), nip: form.get("nip"), email: form.get("email"), password: form.get("password"), role_id: Number(form.get("role_id")), department_id: form.get("department_id") ? Number(form.get("department_id")) : null }) }); setCreateOpen(false); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal membuat akun"); } finally { setBusy(false); } }
-  async function updateProfile(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!editing) return; setBusy(true); setError(""); const form = new FormData(event.currentTarget); try { await api(`/users/${editing.id}`, { method: "PUT", body: JSON.stringify({ name: form.get("name"), email: form.get("email"), nip: form.get("nip"), role_id: Number(form.get("role_id")), department_id: form.get("department_id") ? Number(form.get("department_id")) : null, jabatan: form.get("jabatan") || null }) }); setEditing(null); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal memperbarui profil"); } finally { setBusy(false); } }
-  async function toggle(user: UserRow) { try { await api(`/users/${user.id}/status`, { method: "PATCH", body: JSON.stringify({ aktif: !user.aktif }) }); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal mengubah status"); } }
-  async function resetPassword(user: UserRow) { const password = window.prompt(`Kata sandi baru untuk ${user.name}`); if (!password) return; try { await api(`/users/${user.id}/password`, { method: "PATCH", body: JSON.stringify({ password }) }); } catch (e) { setError(e instanceof Error ? e.message : "Gagal mengubah kata sandi"); } }
-  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">PENGATURAN AKSES</span><h1>Manajemen pengguna</h1><p>Atur profil, kata sandi, peran, dan status akses pengguna sekolah.</p></div><div className="table-actions"><div className="heading-count"><UserRoundCog size={17} /> {users.length} pengguna</div><Button onClick={() => { setError(""); setCreateOpen(true); }}><Plus size={16} /> Buat akun</Button></div></div>{error && <div className="error-box">{error}</div>}<section className="panel filter-panel"><input className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, email, atau NIP" /><Button variant="secondary" onClick={() => void load()}>Cari pengguna</Button></section><section className="panel table-panel"><div className="table-wrap"><table><thead><tr><th>Nama</th><th>NIP</th><th>Email</th><th>Jabatan / Unit</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{users.map((u) => <tr key={u.id}><td><strong>{u.name}</strong></td><td>{u.nip || "—"}</td><td>{u.email}</td><td>{u.department || "—"}</td><td><Badge>{u.role}</Badge></td><td><Badge tone={u.aktif ? "green" : "rose"}>{u.aktif ? "Aktif" : "Nonaktif"}</Badge></td><td><div className="table-actions"><button className="text-action" onClick={() => setEditing(u)}>Edit</button><button className="text-action" onClick={() => void resetPassword(u)}>Reset sandi</button><button className="text-action" onClick={() => void toggle(u)}>{u.aktif ? "Nonaktifkan" : "Aktifkan"}</button></div></td></tr>)}</tbody></table></div></section>{createOpen && <Modal title="Buat akun pengguna" onClose={() => setCreateOpen(false)}><form className="form-stack modal-form" onSubmit={createUser}><p className="muted">Isi data dasar untuk membuat akun. Pengguna dapat melengkapi profil setelah masuk.</p><div className="form-grid"><label>Nama lengkap<input name="name" required maxLength={150} autoComplete="name" /></label><label>NIP<input name="nip" required inputMode="numeric" pattern="[0-9]{8,18}" title="NIP harus 8 sampai 18 angka" /></label><label>Email<input name="email" type="email" required autoComplete="email" /></label><label>Kata sandi awal<input name="password" type="password" required minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Minimal 8 karakter dan mengandung huruf serta angka" autoComplete="new-password" /></label></div><label>Role<select name="role_id" required defaultValue="" onChange={(e) => { const unit = e.currentTarget.form?.elements.namedItem("department_id") as HTMLSelectElement | null; if (unit) unit.required = roles.find((role) => role.id === Number(e.target.value))?.name === "pegawai"; }}><option value="" disabled>Pilih role</option>{roles.map((role) => <option key={role.id} value={role.id}>{role.description || role.name}</option>)}</select></label><label>Unit Kerja<select name="department_id" defaultValue=""><option value="">Tidak ditetapkan</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>{error && <div className="error-box">{error}</div>}<div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setCreateOpen(false)}>Batal</Button><Button disabled={busy}>{busy ? "Membuat akun..." : "Buat akun"}</Button></div></form></Modal>}{editing && <Modal title={`Ubah pengguna · ${editing.name}`} onClose={() => setEditing(null)}><form className="form-stack modal-form" onSubmit={updateProfile}><div className="form-grid"><label>Nama lengkap<input name="name" required defaultValue={editing.name} /></label><label>NIP<input name="nip" required defaultValue={editing.nip} /></label><label>Email<input name="email" type="email" required defaultValue={editing.email} /></label><label>Jabatan<input name="jabatan" defaultValue={editing.jabatan || ""} /></label></div><label>Role<select name="role_id" defaultValue={editing.role_id} onChange={(e) => { const unit = e.currentTarget.form?.elements.namedItem("department_id") as HTMLSelectElement | null; if (unit) unit.required = roles.find((role) => role.id === Number(e.target.value))?.name === "pegawai"; }}>{roles.map((role) => <option key={role.id} value={role.id}>{role.description || role.name}</option>)}</select></label><label>Unit Kerja<select name="department_id" required={editing.role === "pegawai"} defaultValue={editing.department_id || ""}><option value="">Tidak ditetapkan</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>{error && <div className="error-box">{error}</div>}<div className="modal-actions"><Button variant="secondary" type="button" onClick={() => setEditing(null)}>Batal</Button><Button disabled={busy}>{busy ? "Menyimpan…" : "Simpan perubahan"}</Button></div></form></Modal>}</div>;
+  const [users, setUsers] = useState<UserRow[]>([]),
+    [roles, setRoles] = useState<Role[]>([]),
+    [departments, setDepartments] = useState<Department[]>([]),
+    [search, setSearch] = useState(""),
+    [error, setError] = useState(""),
+    [createOpen, setCreateOpen] = useState(false),
+    [editing, setEditing] = useState<UserRow | null>(null),
+    [busy, setBusy] = useState(false);
+  const load = () =>
+    api<{ data: UserRow[] }>(
+      `/users?search=${encodeURIComponent(search)}&limit=100`,
+    )
+      .then((r) => setUsers(r.data))
+      .catch((e: Error) => setError(e.message));
+  useEffect(() => {
+    void load();
+    void Promise.all([
+      api<{ data: Role[] }>("/users/roles"),
+      api<{ data: Department[] }>("/departments"),
+    ])
+      .then(([r, d]) => {
+        setRoles(r.data);
+        setDepartments(d.data);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, []);
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      await api<unknown>("/users", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.get("name"),
+          nip: form.get("nip"),
+          email: form.get("email"),
+          password: form.get("password"),
+          role_id: Number(form.get("role_id")),
+          department_id: form.get("department_id")
+            ? Number(form.get("department_id"))
+            : null,
+        }),
+      });
+      setCreateOpen(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal membuat akun");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function updateProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    setBusy(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      await api(`/users/${editing.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: form.get("name"),
+          email: form.get("email"),
+          nip: form.get("nip"),
+          role_id: Number(form.get("role_id")),
+          department_id: form.get("department_id")
+            ? Number(form.get("department_id"))
+            : null,
+          jabatan: form.get("jabatan") || null,
+        }),
+      });
+      setEditing(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal memperbarui profil");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function toggle(user: UserRow) {
+    try {
+      await api(`/users/${user.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ aktif: !user.aktif }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal mengubah status");
+    }
+  }
+  async function resetPassword(user: UserRow) {
+    const password = window.prompt(`Kata sandi baru untuk ${user.name}`);
+    if (!password) return;
+    try {
+      await api(`/users/${user.id}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal mengubah kata sandi");
+    }
+  }
+  return (
+    <div className="page-stack">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">PENGATURAN AKSES</span>
+          <h1>Manajemen pengguna</h1>
+          <p>
+            Atur profil, kata sandi, peran, dan status akses pengguna sekolah.
+          </p>
+        </div>
+        <div className="table-actions">
+          <div className="heading-count">
+            <UserRoundCog size={17} /> {users.length} pengguna
+          </div>
+          <Button
+            onClick={() => {
+              setError("");
+              setCreateOpen(true);
+            }}
+          >
+            <Plus size={16} /> Buat akun
+          </Button>
+        </div>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <section className="panel filter-panel">
+        <input
+          className="search-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cari nama, email, atau NIP"
+        />
+        <Button variant="secondary" onClick={() => void load()}>
+          Cari pengguna
+        </Button>
+      </section>
+      <section className="panel table-panel">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nama</th>
+                <th>NIP</th>
+                <th>Email</th>
+                <th>Jabatan / Unit</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td>
+                    <strong>{u.name}</strong>
+                  </td>
+                  <td>{u.nip || "—"}</td>
+                  <td>{u.email}</td>
+                  <td>{u.department || "—"}</td>
+                  <td>
+                    <Badge>{u.role}</Badge>
+                  </td>
+                  <td>
+                    <Badge tone={u.aktif ? "green" : "rose"}>
+                      {u.aktif ? "Aktif" : "Nonaktif"}
+                    </Badge>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="text-action"
+                        onClick={() => setEditing(u)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="text-action"
+                        onClick={() => void resetPassword(u)}
+                      >
+                        Reset sandi
+                      </button>
+                      <button
+                        className="text-action"
+                        onClick={() => void toggle(u)}
+                      >
+                        {u.aktif ? "Nonaktifkan" : "Aktifkan"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {createOpen && (
+        <Modal title="Buat akun pengguna" onClose={() => setCreateOpen(false)}>
+          <form className="form-stack modal-form" onSubmit={createUser}>
+            <p className="muted">
+              Isi data dasar untuk membuat akun. Pengguna dapat melengkapi
+              profil setelah masuk.
+            </p>
+            <div className="form-grid">
+              <label>
+                Nama lengkap
+                <input
+                  name="name"
+                  required
+                  maxLength={150}
+                  autoComplete="name"
+                />
+              </label>
+              <label>
+                NIP
+                <input
+                  name="nip"
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]{8,18}"
+                  title="NIP harus 8 sampai 18 angka"
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                />
+              </label>
+              <label>
+                Kata sandi awal
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}"
+                  title="Minimal 8 karakter dan mengandung huruf serta angka"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+            <label>
+              Role
+              <select
+                name="role_id"
+                required
+                defaultValue=""
+                onChange={(e) => {
+                  const unit = e.currentTarget.form?.elements.namedItem(
+                    "department_id",
+                  ) as HTMLSelectElement | null;
+                  if (unit)
+                    unit.required =
+                      roles.find((role) => role.id === Number(e.target.value))
+                        ?.name === "pegawai";
+                }}
+              >
+                <option value="" disabled>
+                  Pilih role
+                </option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.description || role.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Unit Kerja
+              <select name="department_id" defaultValue="">
+                <option value="">Tidak ditetapkan</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {error && <div className="error-box">{error}</div>}
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setCreateOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button disabled={busy}>
+                {busy ? "Membuat akun..." : "Buat akun"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {editing && (
+        <Modal
+          title={`Ubah pengguna · ${editing.name}`}
+          onClose={() => setEditing(null)}
+        >
+          <form className="form-stack modal-form" onSubmit={updateProfile}>
+            <div className="form-grid">
+              <label>
+                Nama lengkap
+                <input name="name" required defaultValue={editing.name} />
+              </label>
+              <label>
+                NIP
+                <input name="nip" required defaultValue={editing.nip} />
+              </label>
+              <label>
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={editing.email}
+                />
+              </label>
+              <label>
+                Jabatan
+                <input name="jabatan" defaultValue={editing.jabatan || ""} />
+              </label>
+            </div>
+            <label>
+              Role
+              <select
+                name="role_id"
+                defaultValue={editing.role_id}
+                onChange={(e) => {
+                  const unit = e.currentTarget.form?.elements.namedItem(
+                    "department_id",
+                  ) as HTMLSelectElement | null;
+                  if (unit)
+                    unit.required =
+                      roles.find((role) => role.id === Number(e.target.value))
+                        ?.name === "pegawai";
+                }}
+              >
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.description || role.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Unit Kerja
+              <select
+                name="department_id"
+                required={editing.role === "pegawai"}
+                defaultValue={editing.department_id || ""}
+              >
+                <option value="">Tidak ditetapkan</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {error && <div className="error-box">{error}</div>}
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                Batal
+              </Button>
+              <Button disabled={busy}>
+                {busy ? "Menyimpan…" : "Simpan perubahan"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
 }
 export function DepartmentManagementPage() {
-  const [items, setItems] = useState<Department[]>([]), [name, setName] = useState(""), [error, setError] = useState("");
-  const load = () => api<{ data: Department[] }>("/departments?include_inactive=true").then((r) => setItems(r.data)).catch((e: Error) => setError(e.message));
-  useEffect(() => { void load(); }, []);
-  async function add(event: FormEvent) { event.preventDefault(); try { await api("/departments", { method: "POST", body: JSON.stringify({ name }) }); setName(""); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal menambah departemen"); } }
-  async function rename(item: Department) { const next = window.prompt("Nama departemen", item.name); if (!next?.trim() || next === item.name) return; try { await api(`/departments/${item.id}`, { method: "PUT", body: JSON.stringify({ name: next }) }); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal mengubah departemen"); } }
-  async function toggle(item: Department) { try { await api(`/departments/${item.id}/status`, { method: "PATCH", body: JSON.stringify({ aktif: !item.aktif }) }); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Gagal mengubah status unit kerja"); } }
-  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">ORGANISASI SEKOLAH</span><h1>Unit Kerja</h1><p>Tambah, ubah, dan nonaktifkan unit kerja untuk akun pegawai dan disposisi.</p></div><div className="heading-count"><Building2 size={17} /> {items.filter((item) => item.aktif).length} unit aktif</div></div>{error && <div className="error-box">{error}</div>}<form className="panel filter-panel inline-form" onSubmit={add}><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama unit kerja baru" required /><Button><Plus size={16} /> Tambah Unit Kerja</Button></form><div className="department-grid">{items.map((item) => <article className="panel department-card" key={item.id}><div className="department-icon"><Building2 size={18} /></div><div><strong>{item.name}</strong><small>Unit kerja #{item.id} · {item.aktif ? "Aktif" : "Nonaktif"}</small></div>{item.aktif && <button className="text-action" onClick={() => void rename(item)}>Ubah nama</button>}<button className="text-action" onClick={() => void toggle(item)}>{item.aktif ? "Nonaktifkan" : "Aktifkan"}</button></article>)}</div></div>;
+  const [items, setItems] = useState<Department[]>([]),
+    [name, setName] = useState(""),
+    [error, setError] = useState("");
+  const load = () =>
+    api<{ data: Department[] }>("/departments?include_inactive=true")
+      .then((r) => setItems(r.data))
+      .catch((e: Error) => setError(e.message));
+  useEffect(() => {
+    void load();
+  }, []);
+  async function add(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await api("/departments", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      setName("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menambah departemen");
+    }
+  }
+  async function rename(item: Department) {
+    const next = window.prompt("Nama departemen", item.name);
+    if (!next?.trim() || next === item.name) return;
+    try {
+      await api(`/departments/${item.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: next }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal mengubah departemen");
+    }
+  }
+  async function toggle(item: Department) {
+    try {
+      await api(`/departments/${item.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ aktif: !item.aktif }),
+      });
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Gagal mengubah status unit kerja",
+      );
+    }
+  }
+  return (
+    <div className="page-stack">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">ORGANISASI SEKOLAH</span>
+          <h1>Unit Kerja</h1>
+          <p>
+            Tambah, ubah, dan nonaktifkan unit kerja untuk akun pegawai dan
+            disposisi.
+          </p>
+        </div>
+        <div className="heading-count">
+          <Building2 size={17} /> {items.filter((item) => item.aktif).length}{" "}
+          unit aktif
+        </div>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <form className="panel filter-panel inline-form" onSubmit={add}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nama unit kerja baru"
+          required
+        />
+        <Button>
+          <Plus size={16} /> Tambah Unit Kerja
+        </Button>
+      </form>
+      <div className="department-grid">
+        {items.map((item) => (
+          <article className="panel department-card" key={item.id}>
+            <div className="department-icon">
+              <Building2 size={18} />
+            </div>
+            <div>
+              <strong>{item.name}</strong>
+              <small>
+                Unit kerja #{item.id} · {item.aktif ? "Aktif" : "Nonaktif"}
+              </small>
+            </div>
+            {item.aktif && (
+              <button className="text-action" onClick={() => void rename(item)}>
+                Ubah nama
+              </button>
+            )}
+            <button className="text-action" onClick={() => void toggle(item)}>
+              {item.aktif ? "Nonaktifkan" : "Aktifkan"}
+            </button>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
 }
 export function AuditPage() {
-  const [logs, setLogs] = useState<Record<string, unknown>[]>([]), [error, setError] = useState("");
-  useEffect(() => { void api<{ data: { audit_terbaru?: Record<string, unknown>[] } }>("/dashboard").then((r) => setLogs(r.data.audit_terbaru || [])).catch((e: Error) => setError(e.message)); }, []);
-  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">KEAMANAN & KEPATUHAN</span><h1>Audit trail</h1><p>Jejak aktivitas sistem terbaru. Log hanya dapat ditambahkan.</p></div><div className="heading-count"><ShieldCheck size={17} /> Append-only</div></div>{error && <div className="error-box">{error}</div>}<section className="panel table-panel"><div className="table-wrap"><table><thead><tr><th>Waktu</th><th>Pengguna</th><th>Role</th><th>Modul</th><th>Aktivitas</th><th>Alamat IP</th></tr></thead><tbody>{logs.map((log, i) => <tr key={String(log.id || i)}><td>{new Date(String(log.createdAt)).toLocaleString("id-ID")}</td><td>#{String(log.userId)}</td><td><Badge>{String(log.roleName)}</Badge></td><td>{String(log.modul)}</td><td>{String(log.aktivitas)}</td><td>{String(log.ipAddress || "—")}</td></tr>)}</tbody></table>{!logs.length && <div className="empty-state">Belum ada aktivitas tercatat.</div>}</div></section></div>;
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]),
+    [error, setError] = useState("");
+  useEffect(() => {
+    void api<{ data: { audit_terbaru?: Record<string, unknown>[] } }>(
+      "/dashboard",
+    )
+      .then((r) => setLogs(r.data.audit_terbaru || []))
+      .catch((e: Error) => setError(e.message));
+  }, []);
+  return (
+    <div className="page-stack">
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">KEAMANAN & KEPATUHAN</span>
+          <h1>Audit trail</h1>
+          <p>Jejak aktivitas sistem terbaru. Log hanya dapat ditambahkan.</p>
+        </div>
+        <div className="heading-count">
+          <ShieldCheck size={17} /> Append-only
+        </div>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <section className="panel table-panel">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Pengguna</th>
+                <th>Role</th>
+                <th>Modul</th>
+                <th>Aktivitas</th>
+                <th>Alamat IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log, i) => (
+                <tr key={String(log.id || i)}>
+                  <td>
+                    {new Date(String(log.createdAt)).toLocaleString("id-ID")}
+                  </td>
+                  <td>#{String(log.userId)}</td>
+                  <td>
+                    <Badge>{String(log.roleName)}</Badge>
+                  </td>
+                  <td>{String(log.modul)}</td>
+                  <td>{String(log.aktivitas)}</td>
+                  <td>{String(log.ipAddress || "—")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!logs.length && (
+            <div className="empty-state">Belum ada aktivitas tercatat.</div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }

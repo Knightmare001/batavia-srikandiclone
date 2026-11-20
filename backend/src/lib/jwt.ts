@@ -4,7 +4,9 @@ import type { Request } from "express";
 function getSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret || new TextEncoder().encode(secret).length < 32) {
-    throw new Error("JWT_SECRET must be configured with at least 32 characters");
+    throw new Error(
+      "JWT_SECRET must be configured with at least 32 characters",
+    );
   }
   return new TextEncoder().encode(secret);
 }
@@ -19,7 +21,9 @@ export async function createAccessToken(userId: number, role: string) {
 }
 
 export async function verifyAccessToken(token: string) {
-  const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
+  const { payload } = await jwtVerify(token, getSecret(), {
+    algorithms: ["HS256"],
+  });
   return payload;
 }
 

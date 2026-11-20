@@ -2,7 +2,12 @@ import { type Request, type Response, type NextFunction } from "express";
 import { ClientError } from "../exceptions/clientError";
 import multer from "multer";
 
-export function errorMiddleware(err: any, _req: Request, res: Response, _next: NextFunction) {
+export function errorMiddleware(
+  err: any,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+) {
   if (err instanceof multer.MulterError) {
     const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
     return res.status(status).json({ message: err.message, data: null });
@@ -21,4 +26,3 @@ export function errorMiddleware(err: any, _req: Request, res: Response, _next: N
     data: null,
   });
 }
-

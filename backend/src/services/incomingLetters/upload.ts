@@ -13,7 +13,9 @@ export const incomingLetterUpload = multer({
   fileFilter: (_req, file, callback) => {
     const extension = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0];
     if (!extension || !supportedMimeTypes.has(file.mimetype)) {
-      return callback(new ClientError("file_surat must be a PDF, DOC, or DOCX document"));
+      return callback(
+        new ClientError("file_surat must be a PDF, DOC, or DOCX document"),
+      );
     }
     return callback(null, true);
   },

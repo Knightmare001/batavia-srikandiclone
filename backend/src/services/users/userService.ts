@@ -1,6 +1,9 @@
 import bcrypt from "bcrypt";
 import { userRepository, type UserRepository } from "./userRepository";
-import { AuthenticationError, InvariantError } from "../../exceptions/clientError";
+import {
+  AuthenticationError,
+  InvariantError,
+} from "../../exceptions/clientError";
 import type { CreateUserPayload, LoginPayload } from "./validator/schema";
 import { createAccessToken } from "../../lib/jwt";
 
@@ -37,7 +40,9 @@ export class UserService {
 
     // 4. Default name if not given
     const name: string =
-      payload.name && payload.name.trim() !== "" ? payload.name.trim() : email.split("@")[0] || "User";
+      payload.name && payload.name.trim() !== ""
+        ? payload.name.trim()
+        : email.split("@")[0] || "User";
 
     // 5. Insert to DB
     const newUser = await this.repo.insertUser({

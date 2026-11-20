@@ -4,11 +4,17 @@ import { verifyAccessToken, type AuthenticatedRequest } from "../lib/jwt";
 import { db } from "../lib/db";
 import { roles, users } from "../lib/schema";
 
-export async function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function authenticate(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
   const authorization = req.get("authorization");
   const [scheme, token] = authorization?.split(" ") ?? [];
   if (scheme !== "Bearer" || !token) {
-    return res.status(401).json({ message: "authentication required", data: null });
+    return res
+      .status(401)
+      .json({ message: "authentication required", data: null });
   }
 
   let userId: number;
@@ -16,10 +22,14 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     const payload = await verifyAccessToken(token);
     userId = Number(payload.sub);
     if (!Number.isSafeInteger(userId) || userId <= 0) {
-      return res.status(401).json({ message: "invalid or expired token", data: null });
+      return res
+        .status(401)
+        .json({ message: "invalid or expired token", data: null });
     }
   } catch {
-    return res.status(401).json({ message: "invalid or expired token", data: null });
+    return res
+      .status(401)
+      .json({ message: "invalid or expired token", data: null });
   }
 
   try {
@@ -30,7 +40,9 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
       .where(and(eq(users.id, userId), isNull(users.deletedAt)));
 
     if (!user) {
-      return res.status(401).json({ message: "invalid or expired token", data: null });
+      return res
+        .status(401)
+        .json({ message: "invalid or expired token", data: null });
     }
 
     req.authUser = { id: user.id, role: user.role };

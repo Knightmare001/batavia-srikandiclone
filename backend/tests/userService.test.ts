@@ -28,8 +28,12 @@ describe("UserService Integration Logic Tests", () => {
 
     const service = new UserService(mockRepo as any);
     await assert.rejects(
-      service.createUser({ email: "admin@gmail.com", password: "password123", nip: "198501012010011001" }),
-      /email already exists/
+      service.createUser({
+        email: "admin@gmail.com",
+        password: "password123",
+        nip: "198501012010011001",
+      }),
+      /email already exists/,
     );
   });
 
@@ -39,7 +43,12 @@ describe("UserService Integration Logic Tests", () => {
       findByNip: async () => null,
       findByEmail: async () => null,
       findRoleById: async () => null,
-      findRoleByName: async () => ({ id: 5, name: "pegawai", description: "", createdAt: new Date() }),
+      findRoleByName: async () => ({
+        id: 5,
+        name: "pegawai",
+        description: "",
+        createdAt: new Date(),
+      }),
       hasActiveDepartment: async () => true,
       insertUser: async (data: any) => {
         insertedData = data;
@@ -88,7 +97,7 @@ describe("UserService Integration Logic Tests", () => {
         password: "Password123",
         nip: "198501012010011001",
       }),
-      /nip already exists/
+      /nip already exists/,
     );
   });
 
@@ -109,7 +118,12 @@ describe("UserService Integration Logic Tests", () => {
         updatedAt: new Date(),
         deletedAt: null,
       }),
-      findRoleById: async () => ({ id: 1, name: "admin", description: "", createdAt: new Date() }),
+      findRoleById: async () => ({
+        id: 1,
+        name: "admin",
+        description: "",
+        createdAt: new Date(),
+      }),
     };
 
     const result = await new UserService(mockRepo as any).loginUser({
@@ -127,7 +141,9 @@ describe("UserService Integration Logic Tests", () => {
   it("should return the same authentication error for unknown NIP and wrong password", async () => {
     const bcrypt = await import("bcrypt");
     const passwordHash = await bcrypt.default.hash("Password123!", 4);
-    const unknownNipService = new UserService({ findByNip: async () => null } as any);
+    const unknownNipService = new UserService({
+      findByNip: async () => null,
+    } as any);
     const wrongPasswordService = new UserService({
       findByNip: async () => ({
         id: 1,
@@ -142,16 +158,29 @@ describe("UserService Integration Logic Tests", () => {
         updatedAt: new Date(),
         deletedAt: null,
       }),
-      findRoleById: async () => ({ id: 1, name: "admin", description: "", createdAt: new Date() }),
+      findRoleById: async () => ({
+        id: 1,
+        name: "admin",
+        description: "",
+        createdAt: new Date(),
+      }),
     } as any);
 
     await assert.rejects(
-      unknownNipService.loginUser({ nip: "198501012010011002", password: "Password123!" }),
-      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+      unknownNipService.loginUser({
+        nip: "198501012010011002",
+        password: "Password123!",
+      }),
+      (error: any) =>
+        error.statusCode === 401 && error.message === "nip atau password salah",
     );
     await assert.rejects(
-      wrongPasswordService.loginUser({ nip: "198501012010011001", password: "WrongPass123" }),
-      (error: any) => error.statusCode === 401 && error.message === "nip atau password salah"
+      wrongPasswordService.loginUser({
+        nip: "198501012010011001",
+        password: "WrongPass123",
+      }),
+      (error: any) =>
+        error.statusCode === 401 && error.message === "nip atau password salah",
     );
   });
 });

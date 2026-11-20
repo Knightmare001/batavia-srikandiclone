@@ -47,4 +47,3 @@ router.use("/api/v1/disposisi", dispositionRouter);
 router.use("/api/v1/surat-keluar", outgoingLetterRouter);
 
 export default router;
-
