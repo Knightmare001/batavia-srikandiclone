@@ -58,6 +58,10 @@ button { cursor: pointer; }
 .dark .account-menu button.account-logout:hover { background: #44282f; }
 .header-icon, .icon-button { position: relative; display: inline-grid; place-items: center; color: #627169; background: transparent; border: 0; border-radius: 8px; width: 36px; height: 36px; }
 .header-icon:hover, .icon-button:hover { color: #07845b; background: #eff7f2; }
+.header-icon[data-tooltip], .icon-button[data-tooltip] { isolation: isolate; }
+.header-icon[data-tooltip]::after, .icon-button[data-tooltip]::after { content: attr(data-tooltip); position: absolute; z-index: 60; left: 50%; bottom: calc(100% + 7px); transform: translate(-50%, 3px); width: max-content; max-width: 220px; color: #435249; font: 550 11px/1.35 Inter, ui-sans-serif, system-ui, sans-serif; letter-spacing: .01em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .16s ease, transform .16s ease; text-shadow: 0 1px 8px #fff, 0 0 2px #fff; }
+.dark .header-icon[data-tooltip]::after, .dark .icon-button[data-tooltip]::after { color: #dce8e1; text-shadow: 0 1px 8px #0f172a, 0 0 2px #0f172a; }
+.header-icon[data-tooltip]:hover::after, .header-icon[data-tooltip]:focus-visible::after, .icon-button[data-tooltip]:hover::after, .icon-button[data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 .unread-dot { position: absolute; top: 0; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9px; background: #e55656; color: #fff; display: grid; place-items: center; font-size: 9px; font-weight: 700; border: 2px solid white; }
 .avatar-small { width: 32px; height: 32px; font-size: 12px; }
 .header-profile { display: flex; align-items: center; gap: 9px; }
