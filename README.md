@@ -45,61 +45,93 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 
 ## 🛠️ Panduan Menjalankan Project
 
-### 1. Prasyarat
-- Node.js 26 LTS
-- Server MariaDB aktif
+### Instalasi pertama kali
 
-### 2. Konfigurasi Environment
-Salin template konfigurasi:
+Pastikan sudah terpasang **Node.js 26** (sesuai `engines` di `package.json`) dan **MariaDB**. Nyalakan MariaDB, lalu buat database kosong:
+
+```sql
+CREATE DATABASE belajar_vibecoding CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Di direktori utama proyek, salin file konfigurasi dan pasang dependensi backend:
+
 ```bash
 cp .env.example .env
+npm install
 ```
-Sesuaikan kredensial MariaDB pada `.env`:
+
+Buka `.env` dan sesuaikan `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, serta `DB_NAME` dengan MariaDB lokal. Pastikan `JWT_SECRET` diganti dengan string acak minimal 32 karakter. Contoh konfigurasi lokal:
+
 ```env
 PORT=3000
 NODE_ENV=development
-
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=password_mariadb_anda
 DB_NAME=belajar_vibecoding
-JWT_SECRET=isi_dengan_secret_acak_minimal_32_karakter
+JWT_SECRET=ganti_dengan_secret_acak_minimal_32_karakter
 ```
 
-### 3. Migrasi & Seed Database
-- **Instal dependensi Node.js:**
-  ```bash
-  npm install
-  ```
+Jangan commit `.env` atau membagikan kredensial database dan secret JWT.
 
-- **Generate SQL Migration:**
-  ```bash
-  npm run db:generate
-  ```
-- **Push Schema ke Database MariaDB:**
-  ```bash
-  npm run db:push
-  ```
-- **Jalankan Seeder (Roles, Departments, Akun Admin Default):**
-  ```bash
-  npm run db:seed
-  ```
-  *(Akun default: NIP `198501012010011001`, password `admin123`)*
+Buat tabel sesuai schema dan isi role, unit kerja, serta akun awal:
 
-### 4. Menjalankan Server & Testing
-- **Menjalankan Server (Dev Mode / Hot Reload):**
-  ```bash
-  npm run dev
-  ```
-- **Type Checking:**
-  ```bash
-  npm run typecheck
-  ```
-- **Menjalankan Unit Test:**
-  ```bash
-  npm test
-  ```
+```bash
+npm run db:push
+npm run db:seed
+```
+
+`db:push` menerapkan schema langsung ke database. `db:generate` dan `db:migrate` tersedia untuk alur migration berbasis berkas jika diperlukan.
+
+### Menjalankan aplikasi saat pengembangan
+
+Terminal pertama, dari direktori utama, jalankan backend:
+
+```bash
+npm run dev
+```
+
+Terminal kedua, jalankan frontend:
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Buka URL Vite yang tampil di terminal (umumnya `http://localhost:5173`). Frontend mengakses backend di `http://localhost:3000/api/v1`; ubah `VITE_API_URL` di `frontend/.env.local` jika alamat backend berbeda. Backend tersedia di `http://localhost:3000`, dan health check dapat diperiksa di `http://localhost:3000/health`.
+
+### Akun awal
+
+Seeder membuat akun admin dan akun demo untuk tiap role. Masuk menggunakan NIP dan kata sandi berikut:
+
+| Role | NIP | Kata sandi awal |
+| --- | --- | --- |
+| Admin | `198501012010011001` | `admin123` |
+| Tata Usaha | `199001010000000002` | `CobaAkun2026!` |
+| Kepala Sekolah | `199001010000000003` | `CobaAkun2026!` |
+| Pegawai | `199001010000000004` | `CobaAkun2026!` |
+
+Akun demo ditujukan untuk pengembangan lokal. Ganti kata sandi awal sebelum memakai aplikasi di lingkungan bersama atau produksi.
+
+### Perintah berguna
+
+Jalankan dari direktori utama, kecuali perintah frontend:
+
+```bash
+npm run typecheck       # periksa tipe TypeScript backend
+npm run db:studio       # buka Drizzle Studio
+```
+
+Untuk build frontend produksi:
+
+```bash
+cd frontend
+npm run build
+npm run preview
+```
 
 ---
 
