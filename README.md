@@ -1,4 +1,6 @@
-# Belajar Vibecoding - Express + Drizzle + MariaDB (Node.js)
+# batavia - srikandiClone
+
+Sistem arsip digital dan persuratan sekolah berbasis Express, Drizzle ORM, MariaDB, dan React.
 
 Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/keluar, disposisi berjenjang, dan audit trail log) berbasis **Node.js**, **Express.js**, **Drizzle ORM**, dan **MariaDB**.
 
@@ -50,7 +52,7 @@ Sistem Informasi Kearsipan Dinamis & Persuratan Sekolah (arsip surat masuk/kelua
 Pastikan sudah terpasang **Node.js 26** (sesuai `engines` di `package.json`) dan **MariaDB**. Nyalakan MariaDB, lalu buat database kosong:
 
 ```sql
-CREATE DATABASE belajar_vibecoding CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE batavia_srikandiclone CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 Di direktori utama proyek, salin file konfigurasi dan pasang dependensi backend:
@@ -69,11 +71,12 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=password_mariadb_anda
-DB_NAME=belajar_vibecoding
+DB_NAME=batavia_srikandiclone
 JWT_SECRET=ganti_dengan_secret_acak_minimal_32_karakter
 ```
 
 Jangan commit `.env` atau membagikan kredensial database dan secret JWT.
+Jika Anda sudah punya database dari versi lama, pertahankan nama database yang sekarang pada `DB_NAME` agar aplikasi tetap memakai data tersebut. Nama default baru hanya digunakan untuk instalasi baru.
 
 Buat tabel sesuai schema dan isi role, unit kerja, serta akun awal:
 

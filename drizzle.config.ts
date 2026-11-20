@@ -9,7 +9,7 @@ export default defineConfig({
     host: process.env.DB_HOST || "localhost",
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "belajar_vibecoding",
+    database: process.env.DB_NAME || "batavia_srikandiclone",
     port: Number(process.env.DB_PORT) || 3306,
   },
 });

@@ -40,7 +40,7 @@ Antarmuka ini mengadopsi pola tata letak aplikasi **SRIKANDI** (Sistem Kearsipan
 
 ### 1. Tata Letak (Layout Hierarchy)
 - **Sidebar Kiri**:
-  - Logo instansi sekolah + nama aplikasi (*e-Arsip Madrasah*).
+  - Logo instansi sekolah + nama aplikasi (*batavia - srikandiClone*).
   - Menu dinamis disesuaikan dengan **Role** pengguna dari payload JWT:
     - *Admin*: Dashboard, Manajemen User, Kelola Departemen, Arsip Global, Audit Trail.
     - *TU*: Dashboard, Surat Masuk (Input/List), Surat Keluar (Input/List), Arsip Global.

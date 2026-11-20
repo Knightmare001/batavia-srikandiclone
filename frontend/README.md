@@ -1,4 +1,4 @@
-# e-Arsip Madrasah
+# batavia - srikandiClone
 
 React 19, TypeScript, Vite, Tailwind CSS 4, and React Router frontend for the school correspondence archive.
 
